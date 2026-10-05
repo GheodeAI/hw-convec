@@ -1,0 +1,25 @@
+# Data and derived products are large and regenerable; track code only.
+data/
+processed/
+outputs/
+archive/
+recovery_*/
+
+# Superseded and development-only scripts stay on disk but are not published.
+scripts/archive/
+
+# Binary and intermediate files anywhere in the tree
+*.nc
+*.npz
+*.parquet
+*.tar
+*.tar.gz
+*.png
+*.pdf
+*.log
+nohup.out
+
+# Python
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
