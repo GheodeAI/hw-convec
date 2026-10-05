@@ -1,0 +1,21 @@
+name: hw-convec
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - numpy=2.4.3
+  - pandas=3.0.2
+  - scipy=1.17.1
+  - xarray=2025.6.1
+  - netcdf4=1.7.4
+  - dask=2026.3.0
+  - pyarrow=23.0.1
+  - matplotlib=3.10.9
+  - shapely=2.1.2
+  - pyshp=3.0.3
+  - cdsapi=0.7.7
+  - zarr=3.1.6
+  - gcsfs=2026.5.0
+  - pip
+  - pip:
+      - heatindex==0.0.2

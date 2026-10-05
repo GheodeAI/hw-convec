@@ -10,7 +10,7 @@
 #
 # Several steps refuse to overwrite an existing output directory, so a full
 # rerun should go to a fresh RUN, e.g.  RUN=outputs/run_90p20_rerun bash scripts/run_all.sh main
-# Run inside the conda environment that has pyshp/shapely (yulin_geo).
+# Run inside the conda environment from environment.yml.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
