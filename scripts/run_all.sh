@@ -19,7 +19,7 @@ CLIM=${CLIM:-outputs/sensitivity/threshold_sweep/shared_climatology}
 P=scripts/pipeline
 F=scripts/figures
 S=scripts/sensitivity
-D=scripts/diagnostics
+D=scripts/statistics
 py() { echo "+ python $*"; python "$@"; }
 
 data() {
