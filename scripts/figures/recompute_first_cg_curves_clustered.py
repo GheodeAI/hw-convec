@@ -42,7 +42,7 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from common.stats import bh
-from common.style import BLUE, ORANGE, apply_style, panel_letter as letter
+from common.style import BLUE, ORANGE, FULL_WIDTH, apply_style, label_panels
 
 apply_style()
 
@@ -219,26 +219,28 @@ def plot_merged(out: Path, summary: pd.DataFrame, changes: pd.DataFrame) -> None
     only) -- the 'compound' curve is otherwise duplicated across two figures.
     The direct compound-vs-non-heatwave comparison itself lives in its own
     figure (11_first_CG_compound_vs_nonHW_difference.png), not marked here."""
-    fig, axs = plt.subplots(2, 2, figsize=(12.1, 7.15))
-    for ax, v, c in zip(axs.flat, VARIABLES, "abcd"):
+    fig, axs = plt.subplots(2, 2, figsize=(FULL_WIDTH, 4.8))
+    for i, (ax, v, c) in enumerate(zip(axs.flat, VARIABLES, "abcd")):
         a = summary[(summary.kind == "compound") & (summary.variable == v)].sort_values("hour")
         ax.fill_between(a.hour, a.q25, a.q75, color="#a5d0e5", alpha=.5, linewidth=0, label="Compound IQR")
         ax.fill_between(a.hour, a.ci95_lower, a.ci95_upper, color=BLUE, alpha=.3, linewidth=0,
                          label="95% event/cell-cluster bootstrap CI")
-        ax.plot(a.hour, a["mean"], "o-", c=BLUE, lw=2, label="Compound-event first CG")
+        ax.plot(a.hour, a["mean"], "o-", c=BLUE, lw=1.3, ms=3.5, label="Compound-event first CG")
         sig = changes[(changes.kind == "compound") & (changes.variable == v) & (changes.p_bh < .05)].hour
         ss = a.set_index("hour").loc[sig]
-        ax.scatter(ss.index, ss["mean"], marker="*", s=90, c="#a62a55", zorder=5,
+        ax.scatter(ss.index, ss["mean"], marker="*", s=36, c="#a62a55", zorder=5,
                    label="Adjacent change: BH q < 0.05")
 
         b = summary[(summary.kind == "nonhw_onset") & (summary.variable == v)].sort_values("hour")
         ax.fill_between(b.hour, b.ci95_lower, b.ci95_upper, color=ORANGE, alpha=.25, linewidth=0)
-        ax.plot(b.hour, b["mean"], "^--", c=ORANGE, lw=2, label="Non-heatwave CG onset")
+        ax.plot(b.hour, b["mean"], "^--", c=ORANGE, lw=1.3, ms=3.5, label="Non-heatwave CG onset")
 
-        ax.axvline(0, c="black", lw=.7); ax.axhline(0, c="black", lw=.7)
-        ax.set(xlabel="Hours from CG reference (nearest 3-hour slot)", ylabel=UNITS[v])
-        ax.set_xticks(range(-12, 13, 3)); ax.grid(alpha=.2); letter(ax, c)
-    fig.tight_layout()
+        ax.axvline(0, c="black", lw=.7); ax.axhline(0, c="grey", lw=.9, ls="--")
+        ax.set_ylabel(UNITS[v])
+        ax.set_xticks(range(-12, 13, 3)); ax.grid(alpha=.2)
+    fig.supxlabel("Hours from CG reference (nearest 3-hour slot)", fontsize=plt.rcParams["axes.labelsize"])
+    fig.tight_layout(h_pad=1.6)
+    label_panels(fig, axs.flat, "abcd")
     fig.savefig(out / "figures/09_10_first_CG_merged_event_cluster.png", dpi=1200, bbox_inches="tight")
     plt.close(fig)
 
@@ -247,18 +249,20 @@ def plot_between_group(out: Path, between_group: pd.DataFrame) -> None:
     """Standalone figure for the direct event-level compound-vs-non-heatwave
     comparison: the difference curve itself, with its own cluster-bootstrap CI
     and BH-significance stars, rather than reading it off two overlaid curves."""
-    fig, axs = plt.subplots(2, 2, figsize=(12.1, 7.15))
-    for ax, v, c in zip(axs.flat, VARIABLES, "abcd"):
+    fig, axs = plt.subplots(2, 2, figsize=(FULL_WIDTH, 4.8))
+    for i, (ax, v, c) in enumerate(zip(axs.flat, VARIABLES, "abcd")):
         a = between_group[between_group.variable == v].sort_values("hour")
         ax.fill_between(a.hour, a.ci95_lower, a.ci95_upper, color=BLUE, alpha=.2, linewidth=0,
                          label="95% two-sample cluster bootstrap CI")
-        ax.plot(a.hour, a.difference, "o-", c=BLUE, lw=2, label="Compound - non-heatwave onset")
+        ax.plot(a.hour, a.difference, "o-", c=BLUE, lw=1.3, ms=3.5, label="Compound - non-heatwave onset")
         sig = a[a.p_bh < .05]
-        ax.scatter(sig.hour, sig.difference, marker="*", s=90, c="#a62a55", zorder=5, label="BH q < 0.05")
+        ax.scatter(sig.hour, sig.difference, marker="*", s=36, c="#a62a55", zorder=5, label="BH q < 0.05")
         ax.axvline(0, c="black", lw=.7); ax.axhline(0, c="grey", lw=.9, ls="--")
-        ax.set(xlabel="Hours from CG reference (nearest 3-hour slot)", ylabel=f"Difference ({UNITS[v]})")
-        ax.set_xticks(range(-12, 13, 3)); ax.grid(alpha=.2); letter(ax, c)
-    fig.tight_layout()
+        ax.set_ylabel(f"Difference ({UNITS[v]})")
+        ax.set_xticks(range(-12, 13, 3)); ax.grid(alpha=.2)
+    fig.supxlabel("Hours from CG reference (nearest 3-hour slot)", fontsize=plt.rcParams["axes.labelsize"])
+    fig.tight_layout(h_pad=1.6)
+    label_panels(fig, axs.flat, "abcd")
     fig.savefig(out / "figures/first_CG_compound_vs_nonHW_difference_event_cluster.png", dpi=1200, bbox_inches="tight")
     plt.close(fig)
 

@@ -32,7 +32,7 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from common.config import YEARS, HW
-from common.style import BLUE, ORANGE, apply_style
+from common.style import BLUE, ORANGE, FULL_WIDTH, apply_style
 
 apply_style()
 
@@ -118,7 +118,7 @@ def run(out: Path) -> None:
     cg_phase_display = e.cg_phase.clip(upper=1.0)
 
     lims = (0, 1)
-    fig = plt.figure(figsize=(8, 8))
+    fig = plt.figure(figsize=(FULL_WIDTH, FULL_WIDTH))
     gs = fig.add_gridspec(2, 2, width_ratios=[4, 1], height_ratios=[1, 4], wspace=.04, hspace=.04)
     ax_main = fig.add_subplot(gs[1, 0])
     ax_top = fig.add_subplot(gs[0, 0], sharex=ax_main)
@@ -141,7 +141,7 @@ def run(out: Path) -> None:
         (lag > 12, ORANGE, "^", "///"),
     ]
     for sel, color, marker, _ in classes:
-        ax_main.scatter(px[sel], py[sel], s=11, alpha=.35, color=color, marker=marker, linewidth=0)
+        ax_main.scatter(px[sel], py[sel], s=8, alpha=.35, color=color, marker=marker, linewidth=0)
     ax_main.plot(lims, lims, "k--", lw=1, label="First CG at same phase as peak intensity")
     ax_main.set(xlabel="Peak intensity: fraction of event duration since onset",
                 ylabel="First CG: fraction of event duration since onset", xlim=lims, ylim=lims)

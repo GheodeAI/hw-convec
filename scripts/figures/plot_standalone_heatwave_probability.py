@@ -7,9 +7,12 @@ import pandas as pd
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-plt.rcParams.update({'font.family':'sans-serif','font.sans-serif':['Arial','Helvetica','DejaVu Sans'],
-    'font.size':9,'axes.titlesize':10,'axes.labelsize':10,'legend.fontsize':8,
-    'xtick.labelsize':8,'ytick.labelsize':8})
+import sys
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from common.style import MID_WIDTH, apply_style
+
+apply_style()
 
 
 def plot(source):
@@ -23,7 +26,7 @@ def plot(source):
     blue,orange='#1665a3','#ff8512'
     # Plain house style (matches quintile_probability.png / 09_first_CG_compound.png):
     # default spines, no grid, centered title, bordered legend.
-    fig,top=plt.subplots(figsize=(7.6,4.6))
+    fig,top=plt.subplots(figsize=(MID_WIDTH,3.4))
     width=.27; groups=np.arange(3)
     for j,color,hatch,label in [(0,orange,'','Non-heatwave days'),(1,blue,'///','Heatwave days')]:
         x=groups+(j-.5)*width
