@@ -23,11 +23,16 @@ def prepare(out,method='90p20'):
         dates=pd.date_range(f'{year}-01-01',periods=ndays)
         with xr.open_dataset(hw_dir/f'wetbulb_heatwave_{year}.nc') as d:
             ex=(d.tw_daily_max-d.heatwave_threshold).values
+        # Heatwave-related window of every regional event: its footprint from the
+        # first day through the day after the last, the span in which the
+        # compound rule counts CG. Non-HW onsets inside it are not controls.
+        event_window=np.zeros((ndays,lab.shape[1]*nx),bool)
         for i,s in enumerate(ndimage.find_objects(lab),1):
             t,r,c=np.nonzero(lab[s]==i); t+=s[0].start; r+=s[1].start; c+=s[2].start
             w=np.maximum(ex[t,r,c],0).astype(float)
             if not w.sum()>0: raise ValueError('No positive intensity in event')
             centers[offset+i]=(np.average(lat[r],weights=w),np.average(lon[c],weights=w))
+            event_window[t.min():min(t.max()+2,ndays),np.unique(r*nx+c)]=True
         hour=sparse.load_npz(out/f'data/cg_hourly_era5_{year}.npz').tocsc()
         flat=lab.reshape(ndays,-1)
         month=np.repeat(dates.month.values,24)
@@ -40,7 +45,9 @@ def prepare(out,method='90p20'):
             previous=-10000
             for h in candidates:
                 if h-previous<24: continue
-                previous=int(h); t0=dates[0]+pd.Timedelta(hours=int(h))
+                previous=int(h)
+                if event_window[h//24,cell]: continue
+                t0=dates[0]+pd.Timedelta(hours=int(h))
                 records.append(dict(id=f'nonhw_onset_{year}_{cell}_{h}',kind='nonhw_onset',cell=cell,event_id=-1,
                                     first_cg_time=t0,reference_time=t0.round('3h'),year=year))
                 ncontrol+=1
@@ -57,8 +64,9 @@ def prepare(out,method='90p20'):
                                     first_cg_time=t0,reference_time=t0.round('3h'),year=year))
                 ncompound+=1
         checks.append(dict(year=year,compound_gridcell_first_cg=ncompound,nonhw_onsets=ncontrol))
-    e['area_center_latitude_previous']=e.center_latitude
-    e['area_center_longitude_previous']=e.center_longitude
+    if 'area_center_latitude_previous' not in e:  # keep the original area-weighted centres on reruns
+        e['area_center_latitude_previous']=e.center_latitude
+        e['area_center_longitude_previous']=e.center_longitude
     e['center_latitude']=[centers[i][0] for i in e.event_id]
     e['center_longitude']=[centers[i][1] for i in e.event_id]
     e.to_csv(out/'tables/regional_events.csv',index=False)
@@ -73,9 +81,10 @@ def prepare(out,method='90p20'):
     overlap=a.groupby(['cell','first_cg_time']).kind.nunique()
     dump(out/'checks/confirmed_definition.json',dict(center='sum over event land cell-days of positive (Twmax-combined threshold) times coordinate / sum of weights; no pre-averaging of environment',
       compound='grid-cell first CG during HW spell or subsequent 24 h, belonging to a fully CG-covered regional event with CG-cell fraction >=0.10',
-      nonhw_onset='ERA5 land cell with CG at t0, not HW that day, no CG in previous 12 hourly bins, greedily retain onsets at least 24 h apart per cell',
+      nonhw_onset='ERA5 land cell with CG at t0, not HW that day, no CG in previous 12 hourly bins, greedily retain onsets at least 24 h apart per cell; '
+                  'then drop onsets inside any regional event footprint between its first day and the day after its last',
       reference='actual hourly t0 selected by April–September; nearest ERA5 3-hour reference retained separately',
-      overlap_between_groups_at_same_cell_time=int((overlap>1).sum()),overlap_note='possible when compound first CG is in the allowed post-HW 24 h; neither definition silently changed'))
+      overlap_between_groups_at_same_cell_time=int((overlap>1).sum()),overlap_note='expected 0: compound first CGs lie inside their event window, which non-HW onsets exclude'))
 
 if __name__=='__main__':
     p=argparse.ArgumentParser();p.add_argument('--out',type=Path,required=True)
