@@ -22,8 +22,9 @@ heatwaves that produce CG lightning from those that do not.
   Mahalanobis distance on centre, duration, intensity and peak land area; caliper 0.75). Environmental
   anomalies (q850, TCWV, 2 m dewpoint depression, moisture fluxes, Z500) are compared with
   pair + year fixed effects; time evolution around the first CG uses cluster bootstraps.
-- **Sensitivity.** Absolute wet-bulb thresholds 18–22 °C, CG-fraction rule, environment before the
-  first CG only, and Stull versus Romps wet-bulb formulations.
+- **Sensitivity.** Absolute wet-bulb thresholds 18–22 °C, CG-fraction rule, compound classification
+  counting only CG during the event (without the 24 h after), environment before the first CG only,
+  and Stull versus Romps wet-bulb formulations.
 
 ## Repository layout
 
@@ -34,8 +35,10 @@ scripts/
   download/            ERA5 download from the Copernicus Climate Data Store
   pipeline/            raw data -> heatwaves -> events -> models -> matched environment
   figures/             one script per paper figure (figure numbers noted in run_all.sh)
-  sensitivity/         threshold sweeps and the CG-fraction rule (Table S2)
+  sensitivity/         threshold sweeps, CG-fraction rule and CG time window of the compound
+                       classification (Table S2)
   statistics/          numbers quoted in the text (trend tests, event counts, lifecycle timing)
+                       and Tables S1, S2 as CSV
   run_all.sh           the full run, in order
 ```
 
@@ -67,8 +70,8 @@ conda activate hw-convec
 bash scripts/run_all.sh data          # downloads and preprocessing (long; needs the raw data above)
 bash scripts/run_all.sh main          # events, fixed-effect models, matching, environment
 bash scripts/run_all.sh figures       # all figures; copies Fig01–Fig07, FigS01–FigS16 to outputs/manuscript/figures/
-bash scripts/run_all.sh sensitivity   # threshold sweeps, Table S2, Fig S7, S8, S14
-bash scripts/run_all.sh numbers       # statistics quoted in the text
+bash scripts/run_all.sh sensitivity   # threshold sweeps, CG-fraction rule, CG window; Fig S7, S8, S14
+bash scripts/run_all.sh numbers       # statistics quoted in the text; Tables S1, S2 to outputs/manuscript/tables/
 ```
 
 The main run is written to `outputs/run_90p20/`. Several steps refuse to overwrite an existing

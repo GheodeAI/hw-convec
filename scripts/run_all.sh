@@ -4,8 +4,8 @@
 #   bash scripts/run_all.sh data         # ERA5 3-hourly, wet-bulb thresholds/heatwaves, EUCLID NetCDF, event catalogues
 #   bash scripts/run_all.sh main         # land-only regional events, FE models, matching, environment (into $RUN)
 #   bash scripts/run_all.sh figures      # all main and supplementary figures from $RUN
-#   bash scripts/run_all.sh sensitivity  # absolute-threshold sweeps and CG-fraction rule (Fig S7, S8, S14; Table S2)
-#   bash scripts/run_all.sh numbers      # manuscript statistics printed to the terminal
+#   bash scripts/run_all.sh sensitivity  # absolute-threshold sweeps, CG-fraction rule, CG window (Fig S7, S8, S14)
+#   bash scripts/run_all.sh numbers      # manuscript statistics; Tables S1, S2 as CSV
 #   bash scripts/run_all.sh all
 #
 # Several steps refuse to overwrite an existing output directory, so a full
