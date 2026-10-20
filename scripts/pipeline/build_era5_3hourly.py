@@ -13,7 +13,7 @@ PROJECT_DIR = Path(__file__).resolve().parents[2]
 if str(PROJECT_DIR) not in sys.path:
     sys.path.insert(0, str(PROJECT_DIR))
 
-from common.paths import ARCO_3HOURLY_CACHE_DIR, ERA5_3HOURLY_DIR
+from common.paths import ERA5_3HOURLY_DIR
 from common.wetbulb_heatwave_common import (
     DEFAULT_CHUNKS,
     DEFAULT_DASK_SCHEDULER,
@@ -30,21 +30,12 @@ from common.wetbulb_heatwave_common import (
 warnings.filterwarnings("ignore")
 
 DEFAULT_OUTPUT_DIR = str(ERA5_3HOURLY_DIR)
-DEFAULT_ARCO_CACHE_DIR = str(ARCO_3HOURLY_CACHE_DIR)
-DEFAULT_ARCO_STORE = "gs://gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3"
 
 GRAVITY = 9.80665
 CP_DRY_AIR = 1004.0
 LV = 2.5e6
 EPSILON = 0.622
 EARTH_RADIUS = 6371000.0
-
-AREA = {
-    "north": 72.0,
-    "south": 36.0,
-    "west": -10.0,
-    "east": 66.5,
-}
 
 
 def parse_args():
@@ -58,19 +49,6 @@ def parse_args():
     parser.add_argument("--output-dir", default=DEFAULT_OUTPUT_DIR)
     parser.add_argument("--start-year", type=int, default=DEFAULT_HEATWAVE_START_YEAR)
     parser.add_argument("--end-year", type=int, default=DEFAULT_HEATWAVE_END_YEAR)
-    parser.add_argument("--arco-store", default=DEFAULT_ARCO_STORE)
-    parser.add_argument(
-        "--arco-cache-dir",
-        default=DEFAULT_ARCO_CACHE_DIR,
-        help="Directory containing cached ARCO single-level files named <year>.nc.",
-    )
-    parser.add_argument(
-        "--no-arco-cape-cin",
-        "--no-arco-single-level",
-        dest="no_arco_cape_cin",
-        action="store_true",
-        help="Skip reading CAPE/CIN/TCWV from the public ARCO ERA5 zarr store.",
-    )
     parser.add_argument(
         "--chunks",
         default=DEFAULT_CHUNKS,
@@ -162,73 +140,8 @@ def set_attrs(da, long_name, units, **extra_attrs):
     return da
 
 
-def subset_arco_area(ds):
-    ds = ds.sel(time=ds.time.dt.hour.isin([0, 3, 6, 9, 12, 15, 18, 21]))
-    ds = ds.sel(latitude=slice(AREA["north"], AREA["south"]))
-
-    lon_min = float(ds.longitude.min())
-    lon_max = float(ds.longitude.max())
-    if lon_min >= 0.0 and AREA["west"] < 0.0:
-        west_360 = AREA["west"] % 360.0
-        west = ds.sel(longitude=slice(west_360, lon_max))
-        east = ds.sel(longitude=slice(0.0, AREA["east"]))
-        ds = xr.concat([west, east], dim="longitude")
-        ds = ds.assign_coords(longitude=(((ds.longitude + 180.0) % 360.0) - 180.0)).sortby("longitude")
-    else:
-        ds = ds.sel(longitude=slice(AREA["west"], AREA["east"]))
-    return ds
-
-
-def open_arco_single_level(arco_store, year, chunks=None):
-    patch_zarr_store_close()
-    try:
-        ds = xr.open_zarr(arco_store, chunks=chunks, storage_options={"token": "anon"})
-    except TypeError:
-        ds = xr.open_zarr(arco_store, chunks=chunks)
-
-    ds = ds[
-        [
-            "convective_available_potential_energy",
-            "convective_inhibition",
-            "total_column_water_vapour",
-        ]
-    ]
-    ds = ds.sel(time=slice(f"{year}-01-01", f"{year}-12-31T23:59:59"))
-    ds = subset_arco_area(ds)
-    ds = ds.rename(
-        {
-            "convective_available_potential_energy": "cape",
-            "convective_inhibition": "cin",
-            "total_column_water_vapour": "tcwv",
-        }
-    )
-    ds["cape"].attrs.update(long_name="Convective available potential energy", units="J kg**-1")
-    ds["cin"].attrs.update(long_name="Convective inhibition", units="J kg**-1")
-    ds["tcwv"].attrs.update(
-        long_name="Total column vertically-integrated water vapour",
-        units="kg m**-2",
-        source="ARCO ERA5",
-    )
-    return ds
-
-
-def arco_cache_path(cache_dir, year):
-    return os.path.join(cache_dir, f"{year}.nc")
-
-
-def open_cached_or_remote_arco_single_level(arco_store, cache_dir, year, chunks=None):
-    cache_path = arco_cache_path(cache_dir, year)
-    if os.path.exists(cache_path):
-        logging.info("Opening cached ARCO ERA5 single-level file %s", cache_path)
-        return xr.open_dataset(cache_path, chunks=chunks)
-
-    logging.info("Cached ARCO file missing; reading remote ARCO ERA5 for %s", year)
-    return open_arco_single_level(arco_store, year, chunks=chunks)
-
-
-def build_single_level_dataset(instant, arco):
-    instant = standardize_time(instant)
-    ds = instant
+def build_single_level_dataset(instant):
+    ds = standardize_time(instant)
 
     q2m = specific_humidity_from_dewpoint(ds["d2m"], ds["sp"]).rename("q2m")
     tw = wet_bulb_stull_c(ds["t2m"], ds["d2m"]).rename("tw_3h")
@@ -243,14 +156,14 @@ def build_single_level_dataset(instant, arco):
             "Volumetric soil water layer 1",
             "m**3 m**-3",
         ),
+        "cape": set_attrs(ds["cape"], "Convective available potential energy", "J kg**-1"),
+        "cin": set_attrs(ds["cin"], "Convective inhibition", "J kg**-1"),
+        "tcwv": set_attrs(ds["tcwv"], "Total column vertically-integrated water vapour", "kg m**-2"),
     }
 
     out = xr.Dataset(data_vars)
-    if arco is not None:
-        out = xr.merge([out, arco], compat="override")
-
     out.attrs.update(
-        source="ERA5 single levels from CDS plus ARCO ERA5 CAPE/CIN/TCWV when enabled",
+        source="ERA5 single levels from the Copernicus Climate Data Store",
         temporal_resolution="3-hourly",
         note="Derived variables are calculated at each 3-hourly time step; no daily aggregation is applied.",
     )
@@ -320,18 +233,6 @@ def write_netcdf_file(ds, output, overwrite=False):
     ds.to_netcdf(output, encoding=netcdf_encoding(ds))
 
 
-def patch_zarr_store_close():
-    try:
-        from zarr import storage
-    except ImportError:
-        return
-
-    for class_name in ("DirectoryStore", "ConsolidatedMetadataStore", "FSStore"):
-        store_class = getattr(storage, class_name, None)
-        if store_class is not None and not hasattr(store_class, "close"):
-            store_class.close = lambda self: None
-
-
 def output_paths(output_dir, year):
     single_dir = os.path.join(output_dir, "single_level")
     pressure_dir = os.path.join(output_dir, "pressure_levels")
@@ -375,19 +276,8 @@ def main():
                     instant = open_group_dataset(args.input_dir, year, "instant", chunks=chunks)
                     open_datasets.append(instant)
 
-                    arco = None
-                    if not args.no_arco_cape_cin:
-                        logging.info("Opening ARCO ERA5 CAPE/CIN/TCWV for %s", year)
-                        arco = open_cached_or_remote_arco_single_level(
-                            args.arco_store,
-                            args.arco_cache_dir,
-                            year,
-                            chunks=chunks,
-                        )
-                        open_datasets.append(arco)
-
                     logging.info("Building single-level dataset for %s", year)
-                    single_ds = build_single_level_dataset(instant, arco)
+                    single_ds = build_single_level_dataset(instant)
                     logging.info("Writing %s", single_output)
                     write_netcdf_file(single_ds, single_output, overwrite=args.overwrite)
 

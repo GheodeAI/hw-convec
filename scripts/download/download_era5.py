@@ -39,6 +39,8 @@ DATASETS = {
             "surface_pressure",
             "mean_sea_level_pressure",
             "total_column_water_vapour",
+            "convective_available_potential_energy",
+            "convective_inhibition",
             "geopotential",
             "volumetric_soil_water_layer_1",
             "boundary_layer_height",
