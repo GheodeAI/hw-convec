@@ -79,6 +79,7 @@ sensitivity() {
     py $S/run_absolute_threshold_sweep.py
     py $S/run_environment_sensitivity_sweep.py
     py $S/run_land_cg_fraction_sensitivity.py --source "$RUN" --output "$RUN/cg_fraction_sensitivity_v1"  # Table S2
+    py $S/run_cg_window_sensitivity.py                            # compound defined without the 24 h after
     py $F/plot_threshold_sensitivity.py                           # Fig S6, S7
     py $F/plot_environment_threshold_sensitivity.py               # Fig S11
 }
