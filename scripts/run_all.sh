@@ -36,8 +36,8 @@ data() {
         --output-dir processed/compound/euclid_cg --output-prefix cg \
         --tables-dir processed/compound/euclid_cg/tables \
         --method 90p20 processed/wetbulb/heatwaves/90p20
-    # Grid-cell CG compound events for Fig S5. VERIFY output names: the figure
-    # reads compound_cg_heatwave_lightning_events_*.csv from processed/compound/euclid_cg.
+    # Grid-cell CG compound events for Fig S5; writes
+    # processed/compound/euclid_cg/compound_cg_heatwave_lightning_events_90p20_2006_2025.csv.
     py $P/build_gridcell_compound_events_euclid.py \
         --euclid-dir data/Euclid/monthly_nc_cg --euclid-pattern 'euclid_flash_cg_*.nc' \
         --output-dir processed/compound/euclid_cg --output-prefix cg \

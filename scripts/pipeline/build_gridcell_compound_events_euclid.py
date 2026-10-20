@@ -17,7 +17,7 @@ if str(PROJECT_DIR) not in sys.path:
     sys.path.insert(0, str(PROJECT_DIR))
 
 from common.paths import COMPOUND_EUCLID_DIR, DATA_DIR, WETBULB_HEATWAVES_DIR
-from scripts.pipeline.build_gridcell_compound_events import (
+from common.heatwave_events import (
     build_heatwave_events,
     heatwave_path,
     nearest_index,

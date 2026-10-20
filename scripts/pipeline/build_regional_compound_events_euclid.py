@@ -19,7 +19,7 @@ if str(PROJECT_DIR) not in sys.path:
 
 from common.paths import COMPOUND_EUCLID_DIR, COMPOUND_TABLES_DIR, DATA_DIR, WETBULB_HEATWAVES_DIR
 from scripts.pipeline.build_gridcell_compound_events_euclid import load_euclid_lightning_events
-from scripts.pipeline.build_regional_compound_events import (
+from common.heatwave_events import (
     connectivity_structure,
     heatwave_path,
     load_grid,

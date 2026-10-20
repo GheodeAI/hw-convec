@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Plot compound event location density maps for ESWD and EUCLID."""
+"""Plot the EUCLID CG compound-event location density map (Fig S5)."""
 
 from __future__ import annotations
 
@@ -30,8 +30,6 @@ if str(PROJECT_DIR) not in sys.path:
     sys.path.insert(0, str(PROJECT_DIR))
 
 from common.paths import (
-    COMPOUND_ESWD_DIR,
-    COMPOUND_EUCLID_DIR,
     COMPOUND_DATA_DIR,
     COMPOUND_FIGURES_DIR,
     COUNTRIES_SHAPEFILE,
@@ -69,18 +67,6 @@ def panel_letter(ax, c):
 
 
 SOURCE_CONFIG = {
-    "eswd": {
-        "label": "ESWD",
-        "csv_prefix": "compound_eswd_heatwave_convection_events",
-        "netcdf_prefix": "eswd_compound_event_location_density",
-        "event_id_column": "heatwave_event_id",
-    },
-    "euclid": {
-        "label": "EUCLID",
-        "csv_prefix": "compound_euclid_heatwave_lightning_events",
-        "netcdf_prefix": "euclid_compound_event_location_density",
-        "event_id_column": "heatwave_event_id",
-    },
     "euclid_cg": {
         "label": "EUCLID CG",
         "csv_prefix": "compound_cg_heatwave_lightning_events",
@@ -93,15 +79,13 @@ SOURCE_CONFIG = {
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "Plot annualized compound event location density maps from ESWD and EUCLID "
-            "grid-cell compound-event tables."
+            "Plot the annualized compound-event location density map from the EUCLID CG "
+            "grid-cell compound-event table."
         )
     )
     parser.add_argument("--method", default=DEFAULT_METHOD)
     parser.add_argument("--start-year", type=int, default=2006)
     parser.add_argument("--end-year", type=int, default=2025)
-    parser.add_argument("--eswd-dir", default=str(COMPOUND_ESWD_DIR))
-    parser.add_argument("--euclid-dir", default=str(COMPOUND_EUCLID_DIR))
     parser.add_argument("--euclid-cg-dir", default=str(PROJECT_DIR / "processed" / "compound" / "euclid_cg"))
     parser.add_argument("--euclid-cg-grid-dir", default=str(PROJECT_DIR / "data" / "Euclid" / "monthly_nc_cg"))
     parser.add_argument(
@@ -114,8 +98,8 @@ def parse_args() -> argparse.Namespace:
         "--sources",
         nargs="+",
         choices=sorted(SOURCE_CONFIG),
-        default=["eswd", "euclid"],
-        help="One or more compound-event sources to plot.",
+        default=["euclid_cg"],
+        help="Compound-event source to plot.",
     )
     parser.add_argument(
         "--figures-dir",
@@ -600,11 +584,7 @@ def main() -> None:
     sources = list(dict.fromkeys(args.sources))
     shapefile = Path(args.shapefile) if args.shapefile else None
     aggregate_tag = grid_tag(args.aggregate_resolution) if args.aggregate_euclid_cg_grid else ""
-    source_dirs = {
-        "eswd": Path(args.eswd_dir),
-        "euclid": Path(args.euclid_dir),
-        "euclid_cg": Path(args.euclid_cg_dir),
-    }
+    source_dirs = {"euclid_cg": Path(args.euclid_cg_dir)}
     cg_latitudes = None
     cg_longitudes = None
 
@@ -665,12 +645,8 @@ def main() -> None:
     source_tag = "_".join(sources)
     if args.aggregate_euclid_cg_grid and sources == ["euclid_cg"]:
         source_tag = f"{source_tag}_{aggregate_tag}"
-    if sources == ["eswd", "euclid"]:
-        figure_path = figures_dir / f"compound_event_location_density_{args.method}_{start_year}_{end_year}.png"
-        trend_path = figures_dir / f"compound_event_count_spatial_trend_{args.method}_{start_year}_{end_year}.png"
-    else:
-        figure_path = figures_dir / f"{source_tag}_compound_event_location_density_{args.method}_{start_year}_{end_year}.png"
-        trend_path = figures_dir / f"{source_tag}_compound_event_count_spatial_trend_{args.method}_{start_year}_{end_year}.png"
+    figure_path = figures_dir / f"{source_tag}_compound_event_location_density_{args.method}_{start_year}_{end_year}.png"
+    trend_path = figures_dir / f"{source_tag}_compound_event_count_spatial_trend_{args.method}_{start_year}_{end_year}.png"
     plot_density_maps(datasets, figure_path, args.method, start_year, end_year, shapefile)
     plot_trend_maps(datasets, trend_path, start_year, end_year, shapefile)
     print(f"Wrote {figure_path}", flush=True)

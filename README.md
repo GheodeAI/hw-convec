@@ -1,7 +1,7 @@
 # hw-convec
 
 Code for **"Atmospheric Controls on Cloud-to-Ground Lightning During European Wet-Bulb Heatwaves"**
-(Zou, Y., Luterbacher, J., Xoplaki, E., et al.; in preparation).
+by Yulin Zou, Jorge Pérez-Aracil, Jürg Luterbacher, Elena Xoplaki and Sancho Salcedo-Sanz (in preparation).
 
 The analysis asks how often cloud-to-ground (CG) lightning occurs during wet-bulb heatwaves over
 European land, how that depends on heatwave intensity, and which atmospheric conditions separate
@@ -78,4 +78,4 @@ The mapping from working figure names to paper figure numbers is in
 
 ## Contact
 
-Yulin Zou — please open an issue in this repository.
+Yulin Zou (yulin.zou@uah.es), or open an issue in this repository.
