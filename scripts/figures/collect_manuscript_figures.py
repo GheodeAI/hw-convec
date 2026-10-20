@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Copy the working figures into outputs/manuscript/figures under their paper
-numbers (Fig01-Fig10, FigS01-FigS13). The run directory keeps the working
+numbers (Fig01-Fig07, FigS01-FigS16). The run directory keeps the working
 names the plotting scripts write; this is the only place the paper numbering
 lives, so renumbering the paper means editing FIGURES below and rerunning.
 """
@@ -17,27 +17,27 @@ from common.paths import OUTPUTS_DIR
 FIGURES = {
     'Fig01': '01_occurrence_maps',
     'Fig02': '13_probability',
-    'Fig03': '02_intensity_enhancement',
-    'Fig04': '03_intensity_FE',
-    'Fig05': '04_environment_means',
-    'Fig06': '06_descriptive_balance',
-    'Fig07': '08_environment_matching',
-    'Fig08': 'first_CG_onset_and_peak_intensity_joint',
-    'Fig09': '09_10_first_CG_merged_event_cluster',
-    'Fig10': 'first_CG_compound_vs_nonHW_difference_event_cluster',
+    'Fig03': '03_intensity_FE',
+    'Fig04': '08_environment_matching',
+    'Fig05': 'first_CG_onset_and_peak_intensity_joint',
+    'Fig06': '09_10_first_CG_merged_event_cluster',
+    'Fig07': 'first_CG_compound_vs_nonHW_difference_event_cluster',
     'FigS01': '18_wetbulb_heatwave_historical_spatial',
     'FigS02': '19_wetbulb_heatwave_cg_domain_annual_timeseries',
     'FigS03': '17_euclid_cg_mean_days_intensity',
     'FigS04': '16_euclid_cg_annual_timeseries',
     'FigS05': '15_cg_compound_event_location_density',
-    'FigS06': '14_occurrence_ratio_threshold_sensitivity',
-    'FigS07': '14_intensity_effect_threshold_sensitivity',
-    'FigS08': '20_disagreement_vs_elevation',
-    'FigS09': '05_event_centered_environment',
-    'FigS10': '07_match_balance',
-    'FigS11': '21_environment_threshold_sensitivity',
-    'FigS12': '22_pre_cg_environment',
-    'FigS13': '23_gridcell_first_cg_lifecycle',
+    'FigS06': '02_intensity_enhancement',
+    'FigS07': '14_occurrence_ratio_threshold_sensitivity',
+    'FigS08': '14_intensity_effect_threshold_sensitivity',
+    'FigS09': '20_disagreement_vs_elevation',
+    'FigS10': '04_environment_means',
+    'FigS11': '05_event_centered_environment',
+    'FigS12': '06_descriptive_balance',
+    'FigS13': '07_match_balance',
+    'FigS14': '21_environment_threshold_sensitivity',
+    'FigS15': '22_pre_cg_environment',
+    'FigS16': '23_gridcell_first_cg_lifecycle',
 }
 
 
@@ -51,6 +51,9 @@ def main() -> None:
     if missing:
         sys.exit('Missing working figures in ' + str(args.source) + ':\n  ' + '\n  '.join(missing))
     args.target.mkdir(parents=True, exist_ok=True)
+    # Clear the previous numbering so a renumbered paper leaves no stale Fig*.png behind.
+    for old in args.target.glob('Fig*.png'):
+        old.unlink()
     for number, stem in FIGURES.items():
         shutil.copy2(args.source / f'{stem}.png', args.target / f'{number}.png')
         print(f'{number}.png  <-  {stem}.png')

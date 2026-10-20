@@ -1,6 +1,6 @@
 # hw-convec
 
-Code for **"Atmospheric Controls on Cloud-to-Ground Lightning During European Wet-Bulb Heatwaves"**
+Code for **"Cloud-to-ground lightning is enhanced during European wet-bulb heatwaves"**
 by Yulin Zou, Jorge Pérez-Aracil, Jürg Luterbacher, Elena Xoplaki and Sancho Salcedo-Sanz (in preparation).
 
 The analysis asks how often cloud-to-ground (CG) lightning occurs during wet-bulb heatwaves over
@@ -66,8 +66,8 @@ conda activate hw-convec
 ```bash
 bash scripts/run_all.sh data          # downloads and preprocessing (long; needs the raw data above)
 bash scripts/run_all.sh main          # events, fixed-effect models, matching, environment
-bash scripts/run_all.sh figures       # all figures; copies Fig01–Fig10, FigS01–FigS13 to outputs/manuscript/figures/
-bash scripts/run_all.sh sensitivity   # threshold sweeps, Table S2, Fig S6, S7, S11
+bash scripts/run_all.sh figures       # all figures; copies Fig01–Fig07, FigS01–FigS16 to outputs/manuscript/figures/
+bash scripts/run_all.sh sensitivity   # threshold sweeps, Table S2, Fig S7, S8, S14
 bash scripts/run_all.sh numbers       # statistics quoted in the text
 ```
 

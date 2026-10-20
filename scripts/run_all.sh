@@ -4,7 +4,7 @@
 #   bash scripts/run_all.sh data         # ERA5 3-hourly, wet-bulb thresholds/heatwaves, EUCLID NetCDF, event catalogues
 #   bash scripts/run_all.sh main         # land-only regional events, FE models, matching, environment (into $RUN)
 #   bash scripts/run_all.sh figures      # all main and supplementary figures from $RUN
-#   bash scripts/run_all.sh sensitivity  # absolute-threshold sweeps and CG-fraction rule (Fig S6, S7, S11; Table S2)
+#   bash scripts/run_all.sh sensitivity  # absolute-threshold sweeps and CG-fraction rule (Fig S7, S8, S14; Table S2)
 #   bash scripts/run_all.sh numbers      # manuscript statistics printed to the terminal
 #   bash scripts/run_all.sh all
 #
@@ -27,7 +27,7 @@ data() {
     py $P/build_wetbulb_threshold.py
     py $P/build_wetbulb_heatwaves.py                      # 90p20, Stull (primary)
     py $P/build_wetbulb_threshold.py --wetbulb-method romps
-    py $P/build_wetbulb_heatwaves.py --wetbulb-method romps   # 90p20_romps, Fig S8 only
+    py $P/build_wetbulb_heatwaves.py --wetbulb-method romps   # 90p20_romps, Fig S9 only
     py $P/convert_euclid_dat_to_monthly_nc.py             # reads data/Euclid/original/Euclid_<year>.tar
     py $P/derive_euclid_cg_monthly_nc.py                  # CG-only monthly files in data/Euclid/monthly_nc_cg
     # Unmasked regional catalogue: rebuild_compound_land.py checks its connectivity against it.
@@ -61,17 +61,17 @@ main() {
 }
 
 figures() {
-    py $F/plot_confirmed_land.py --out "$RUN"                     # Fig 1, 3-6, S9, S10 (+ timing data for S13)
+    py $F/plot_confirmed_land.py --out "$RUN"                     # Fig 1, 3, 4, S6, S10-S13 (+ timing data for S16)
     py $F/plot_standalone_heatwave_probability.py --source "$RUN" # Fig 2
-    py $F/analyze_first_cg_peak_intensity_timing.py --out "$RUN"  # Fig 8
-    py $F/recompute_first_cg_curves_clustered.py --out "$RUN"     # Fig 9, 10
+    py $F/analyze_first_cg_peak_intensity_timing.py --out "$RUN"  # Fig 5
+    py $F/recompute_first_cg_curves_clustered.py --out "$RUN"     # Fig 6, 7
     py $F/plot_heatwave_europe_historical_spatial.py              # Fig S1
     py $F/plot_heatwave_europe_annual_timeseries.py               # Fig S2
     py $F/plot_cg_spatial_stats.py                                # Fig S3, S4
     py $F/plot_compound_event_location_density.py --sources euclid_cg  # Fig S5
-    py $F/compare_wetbulb_methods.py                              # Fig S8
-    py $F/plot_pre_cg_environment.py --out "$RUN"                 # Fig S12
-    py $F/plot_gridcell_first_cg_lifecycle.py --out "$RUN"        # Fig S13
+    py $F/compare_wetbulb_methods.py                              # Fig S9
+    py $F/plot_pre_cg_environment.py --out "$RUN"                 # Fig S15
+    py $F/plot_gridcell_first_cg_lifecycle.py --out "$RUN"        # Fig S16
     py $F/collect_manuscript_figures.py --source "$RUN/figures"   # -> outputs/manuscript/figures/Fig*.png
 }
 
@@ -80,14 +80,15 @@ sensitivity() {
     py $S/run_environment_sensitivity_sweep.py
     py $S/run_land_cg_fraction_sensitivity.py --source "$RUN" --output "$RUN/cg_fraction_sensitivity_v1"  # Table S2
     py $S/run_cg_window_sensitivity.py                            # compound defined without the 24 h after
-    py $F/plot_threshold_sensitivity.py                           # Fig S6, S7
-    py $F/plot_environment_threshold_sensitivity.py               # Fig S11
+    py $F/plot_threshold_sensitivity.py                           # Fig S7, S8
+    py $F/plot_environment_threshold_sensitivity.py               # Fig S14
 }
 
 numbers() {
     py $D/test_domain_mean_trends.py                              # trend tests (S2, S4 series)
     py $D/diagnose_cg_coverage_exclusions.py --out "$RUN"         # study-domain event counts
     py $D/summarize_first_cg_lifecycle_stats.py --out "$RUN"      # lifecycle phase / composite sizes
+    py $D/make_supplementary_tables.py                            # Tables S1, S2 as CSV -> outputs/manuscript/tables/
 }
 
 case "${1:-}" in
