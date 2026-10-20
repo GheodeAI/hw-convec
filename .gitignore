@@ -3,7 +3,6 @@ data/
 processed/
 outputs/
 archive/
-recovery_*/
 
 # Superseded and development-only scripts stay on disk but are not published.
 scripts/archive/
