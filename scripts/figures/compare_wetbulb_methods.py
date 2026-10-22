@@ -25,10 +25,9 @@ import shapefile
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-plt.rcParams.update({"font.family": "sans-serif", "font.sans-serif": ["Arial", "Helvetica", "DejaVu Sans"],
-    "font.size": 9, "axes.titlesize": 10, "axes.labelsize": 10, "legend.fontsize": 8,
-    "xtick.labelsize": 8, "ytick.labelsize": 8})
 from matplotlib.colors import LinearSegmentedColormap
+from matplotlib.ticker import MultipleLocator
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 # Reds' own low end is a pale pink, not pure white, which is easy to confuse
 # with the grey no-data background; force 0 to render as exact white instead.
@@ -41,6 +40,9 @@ def panel_letter(ax, c):
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO))
 from common.config import MANUSCRIPT_FIGURES_DIR, RUN_DIR, SENSITIVITY_DIR
+from common.style import BLUE, FULL_WIDTH, apply_style, label_panels
+
+apply_style()
 
 DEFAULT_STULL_DIR = REPO / "processed/wetbulb/heatwaves/90p20"
 DEFAULT_ROMPS_DIR = REPO / "processed/wetbulb/heatwaves/90p20_romps"
@@ -89,7 +91,7 @@ def draw_country_borders(ax, lon_min=-10, lon_max=33, lat_min=36, lat_max=72) ->
         pts = np.asarray(shp.points)
         parts = list(shp.parts) + [len(pts)]
         for a, b in zip(parts[:-1], parts[1:]):
-            ax.plot(pts[a:b, 0], pts[a:b, 1], c="#444444", lw=.4)
+            ax.plot(pts[a:b, 0], pts[a:b, 1], c="#555555", lw=.35)
 
 
 def load_elevation(era5_dir: Path, latitude, longitude) -> np.ndarray:
@@ -244,22 +246,30 @@ def plot(output_dir: Path, latitude: np.ndarray, longitude: np.ndarray,
     band_table.to_csv(output_dir / "disagreement_by_elevation_band.csv", index=False)
     print(band_table.to_string(index=False), flush=True)
 
-    fig, (left, right) = plt.subplots(1, 2, figsize=(14, 5.5))
+    # The figure height is chosen so the equal-aspect map fills its slot: the
+    # map, its colour bar (attached to the map, not the slot) and panel b then
+    # share one height.
+    fig, (left, right) = plt.subplots(1, 2, figsize=(FULL_WIDTH, 3.0))
     left.set_facecolor("#ffffff")  # ocean/outside-study-region NaN cells show through as white
-    mesh = left.pcolormesh(longitude, latitude, disagreement_rate_land * 100, cmap=WHITE_REDS, shading="auto")
-    fig.colorbar(mesh, ax=left).set_label("Heatwave-day classification disagreement (%)")
+    mesh = left.pcolormesh(longitude, latitude, disagreement_rate_land * 100, cmap=WHITE_REDS, shading="auto",
+                           rasterized=True)
     draw_country_borders(left)
     left.set(xlabel="Longitude", ylabel="Latitude", xlim=STUDY_LON, ylim=STUDY_LAT)
-    panel_letter(left, "a")
+    left.set_aspect("equal")
+    left.xaxis.set_major_locator(MultipleLocator(10))
+    left.yaxis.set_major_locator(MultipleLocator(10))
+    cax = make_axes_locatable(left).append_axes("right", size="4%", pad=0.08)
+    fig.colorbar(mesh, cax=cax).set_label("Disagreement (%)")
 
-    right.scatter(flat_elev, flat_rate, s=3, alpha=.15, color="#1665a3")
+    # Same red as the map, so both panels read as the same quantity.
+    right.scatter(flat_elev, flat_rate, s=3, alpha=.25, color="#a50f15", linewidth=0, rasterized=True)
     right.set(xlabel="Surface elevation (m)", ylabel="Disagreement (%)")
     right.grid(axis="y", alpha=.2)
-    panel_letter(right, "b")
-    fig.tight_layout()
-    fig.savefig(output_dir / "disagreement_vs_elevation.png", dpi=600)
+    fig.tight_layout(w_pad=3)
+    label_panels(fig, [left, right], "ab")
+    fig.savefig(output_dir / "disagreement_vs_elevation.png", dpi=600, bbox_inches="tight")
     MANUSCRIPT_FIGURES_DIR.mkdir(parents=True, exist_ok=True)
-    fig.savefig(MANUSCRIPT_FIGURES_DIR / "20_disagreement_vs_elevation.png", dpi=600)
+    fig.savefig(MANUSCRIPT_FIGURES_DIR / "20_disagreement_vs_elevation.png", dpi=600, bbox_inches="tight")
     plt.close(fig)
 
 

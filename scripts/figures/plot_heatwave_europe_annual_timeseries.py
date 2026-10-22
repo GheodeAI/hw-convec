@@ -5,9 +5,6 @@ from pathlib import Path as FsPath
 import sys
 
 import matplotlib.pyplot as plt
-plt.rcParams.update({"font.family": "sans-serif", "font.sans-serif": ["Arial", "Helvetica", "DejaVu Sans"],
-    "font.size": 9, "axes.titlesize": 10, "axes.labelsize": 10, "legend.fontsize": 8,
-    "xtick.labelsize": 8, "ytick.labelsize": 8})
 from matplotlib.ticker import MaxNLocator
 from matplotlib.path import Path
 import numpy as np
@@ -29,10 +26,9 @@ DEFAULT_FIG_DIR = str(HEATWAVE_FIGURES_DIR / "timeseries")
 DEFAULT_TABLE_DIR = str(HEATWAVE_TABLES_DIR / "timeseries")
 DEFAULT_SHAPEFILE = str(COUNTRIES_SHAPEFILE)
 from common.config import MANUSCRIPT_FIGURES_DIR
+from common.style import BLUE, FULL_WIDTH, apply_style, label_panels
 
-
-def panel_letter(ax, c):
-    ax.text(-.14, 1.08, c, transform=ax.transAxes, fontsize=11, fontweight="bold", va="top", ha="left")
+apply_style()
 DEFAULT_CG_DIR = str(PROJECT_DIR / "data" / "Euclid" / "monthly_nc_cg")
 THRESHOLD_DIRS = {
     "90p": "90p",
@@ -307,36 +303,38 @@ def p_label(p_value):
 def plot_series_with_trend(ax, years, values, ylabel, color):
     years = np.asarray(years, dtype=float)
     values = np.asarray(values, dtype=float)
-    ax.plot(years, values, marker="o", lw=2.0, color=color, markersize=4.5)
+    ax.plot(years, values, marker="o", lw=1.3, color=color, markersize=3.5)
     ax.set_ylabel(ylabel)
     ax.grid(axis="y", alpha=0.25)
     ax.xaxis.set_major_locator(MaxNLocator(integer=True))
 
 
 def plot_annual_stats(df, threshold, fig_dir, domain_tag="europe"):
-    fig, axes = plt.subplots(1, 2, figsize=(12, 4.8), constrained_layout=True, sharex=True)
+    fig, axes = plt.subplots(1, 2, figsize=(FULL_WIDTH, 2.8), constrained_layout=True, sharex=True)
     panels = [
-        ("mean_heatwave_days", "Days yr$^{-1}$", "tab:red"),
-        ("mean_heatwave_intensity", "°C", "tab:blue"),
+        ("mean_heatwave_days", "Days yr$^{-1}$", BLUE),
+        ("mean_heatwave_intensity", "°C", BLUE),
     ]
 
     years = df.index.to_numpy()
-    for ax, (column, ylabel, color), c in zip(np.atleast_1d(axes).flat, panels, "ab"):
+    for ax, (column, ylabel, color) in zip(np.atleast_1d(axes).flat, panels):
         plot_series_with_trend(ax, years, df[column].to_numpy(dtype=float), ylabel, color)
         ax.set_xlim(years.min() - 0.5, years.max() + 0.5)
-        ax.set_xticks(years)
+        ax.set_xticks(years[::2])
+        ax.set_xticks(years, minor=True)
         ax.tick_params(axis="x", rotation=45)
         ax.set_xlabel("Year")
-        panel_letter(ax, c)
+    label_panels(fig, np.atleast_1d(axes).flat, "ab")
 
     output = os.path.join(
         fig_dir,
         f"wetbulb_heatwave_{domain_tag}_annual_timeseries_AprSep_{threshold.replace('+', 'plus')}.png",
     )
-    fig.savefig(output, dpi=1200)
+    fig.savefig(output, dpi=1200, bbox_inches="tight")
     if domain_tag == "cg_domain" and threshold == "90p+20":
         MANUSCRIPT_FIGURES_DIR.mkdir(parents=True, exist_ok=True)
-        fig.savefig(MANUSCRIPT_FIGURES_DIR / "19_wetbulb_heatwave_cg_domain_annual_timeseries.png", dpi=1200)
+        fig.savefig(MANUSCRIPT_FIGURES_DIR / "19_wetbulb_heatwave_cg_domain_annual_timeseries.png", dpi=1200,
+                    bbox_inches="tight")
     plt.close(fig)
     print(f"Saved {output}")
     return output

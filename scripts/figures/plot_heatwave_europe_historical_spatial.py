@@ -6,10 +6,8 @@ from pathlib import Path as FsPath
 import sys
 
 import matplotlib.pyplot as plt
-plt.rcParams.update({"font.family": "sans-serif", "font.sans-serif": ["Arial", "Helvetica", "DejaVu Sans"],
-    "font.size": 9, "axes.titlesize": 10, "axes.labelsize": 10, "legend.fontsize": 8,
-    "xtick.labelsize": 8, "ytick.labelsize": 8})
 import matplotlib.colors as mcolors
+import matplotlib.ticker as mticker
 from matplotlib.path import Path
 import numpy as np
 from scipy import stats as scipy_stats
@@ -35,10 +33,9 @@ TEN_M_COUNTRIES_SHAPEFILE = (
 )
 DEFAULT_SHAPEFILE = str(TEN_M_COUNTRIES_SHAPEFILE if TEN_M_COUNTRIES_SHAPEFILE.exists() else COUNTRIES_SHAPEFILE)
 from common.config import MANUSCRIPT_FIGURES_DIR
+from common.style import FULL_WIDTH, apply_style, label_panels
 
-
-def panel_letter(ax, c):
-    ax.text(-.14, 1.08, c, transform=ax.transAxes, fontsize=11, fontweight="bold", va="top", ha="left")
+apply_style()
 DEFAULT_CG_DIR = str(PROJECT_DIR / "data" / "Euclid" / "monthly_nc_cg")
 THRESHOLD_DIRS = {
     "90p": "90p",
@@ -271,7 +268,7 @@ def draw_boundaries(ax, shapefile, xlim, ylim):
             or coords[:, 1].min() > lat_max
         ):
             continue
-        ax.plot(coords[:, 0], coords[:, 1], color="0.15", lw=0.45, alpha=0.8)
+        ax.plot(coords[:, 0], coords[:, 1], color="#555555", lw=0.35)
 
 
 def threshold_for_intensity(ds):
@@ -350,9 +347,9 @@ def plot_limits(title, data):
 
 def colorbar_label(title):
     labels = {
-        "Mean annual heatwave days": "days yr$^{-1}$",
+        "Mean annual heatwave days": "Days yr$^{-1}$",
         "Mean intensity": "°C",
-        "Theil-Sen slope of heatwave days": "days yr$^{-2}$",
+        "Theil-Sen slope of heatwave days": "Days yr$^{-2}$",
     }
     return labels[title]
 
@@ -373,7 +370,7 @@ def add_significance_stippling(ax, data, sig):
         ax.scatter(
             data.longitude.values[x_idx],
             data.latitude.values[y_idx],
-            s=2.0,
+            s=0.4,
             marker=".",
             color=color,
             alpha=0.75,
@@ -392,9 +389,10 @@ def figure_suffix(args):
 
 
 def plot_stats(stats, args, shapefile=None):
-    fig, axes = plt.subplots(1, 3, figsize=(15, 5.2), constrained_layout=True)
+    # Same layout as Fig 1: maps at equal aspect with the colour bar underneath.
+    fig, axes = plt.subplots(1, 3, figsize=(FULL_WIDTH, 3.2), constrained_layout=True)
 
-    for ax, title, c in zip(np.atleast_1d(axes).flat, PANEL_ORDER, "abc"):
+    for ax, title in zip(np.atleast_1d(axes).flat, PANEL_ORDER):
         data = stats[title]
         vmin, vmax = plot_limits(title, data)
         xlim = (float(data.longitude.min()), float(data.longitude.max()))
@@ -417,19 +415,21 @@ def plot_stats(stats, args, shapefile=None):
         ax.set_ylabel("Latitude")
         ax.set_xlim(*xlim)
         ax.set_ylim(*ylim)
-        ax.grid(True, alpha=0.2)
+        ax.set_aspect("equal")
+        ax.xaxis.set_major_locator(mticker.MultipleLocator(10))
+        ax.yaxis.set_major_locator(mticker.MultipleLocator(10))
         draw_boundaries(ax, shapefile, xlim, ylim)
         if "Theil-Sen slope" in title:
             add_significance_stippling(ax, data, stats.get("MK significant heatwave days"))
-        panel_letter(ax, c)
-        cbar = fig.colorbar(mesh, ax=ax, shrink=0.86, fraction=0.025, aspect=36)
+        cbar = fig.colorbar(mesh, ax=ax, orientation="horizontal", fraction=0.05, pad=0.04)
         cbar.set_label(colorbar_label(title))
+    label_panels(fig, np.atleast_1d(axes).flat, "abc")
 
     output = os.path.join(args.fig_dir, f"wetbulb_heatwave_historical_spatial_{figure_suffix(args)}.png")
-    fig.savefig(output, dpi=600)
+    fig.savefig(output, dpi=600, bbox_inches="tight")
     if args.threshold == "90p+20" and args.season_start_month == 4 and args.season_end_month == 9:
         MANUSCRIPT_FIGURES_DIR.mkdir(parents=True, exist_ok=True)
-        fig.savefig(MANUSCRIPT_FIGURES_DIR / "18_wetbulb_heatwave_historical_spatial.png", dpi=600)
+        fig.savefig(MANUSCRIPT_FIGURES_DIR / "18_wetbulb_heatwave_historical_spatial.png", dpi=600, bbox_inches="tight")
     plt.close(fig)
     print(f"Saved {output}")
 

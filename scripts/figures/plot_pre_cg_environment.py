@@ -20,7 +20,7 @@ import matplotlib.pyplot as plt
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from common.environment import ORDER
-from common.style import apply_style
+from common.style import MID_WIDTH, apply_style, label_panels
 
 apply_style()
 
@@ -36,9 +36,9 @@ PANELS = [("whole event, same >=12 h pairs", "pre-CG, >=12 h", "a"),
 
 def plot(effects_path: Path, output: Path) -> None:
     df = pd.read_csv(effects_path)
-    fig, axs = plt.subplots(2, 1, figsize=(7.5, 7.2), sharex=True)
+    fig, axs = plt.subplots(2, 1, figsize=(MID_WIDTH, 5.6), sharex=True)
     offset = .16
-    for ax, (whole_scheme, cut_scheme, letter) in zip(axs, PANELS):
+    for ax, (whole_scheme, cut_scheme, _) in zip(axs, PANELS):
         whole = df[df.scheme == whole_scheme].set_index("variable").loc[ORDER]
         cut = df[df.scheme == cut_scheme].set_index("variable").loc[ORDER]
         y = range(len(ORDER))
@@ -52,8 +52,8 @@ def plot(effects_path: Path, output: Path) -> None:
         # Hollow means one thing in both series: BH-adjusted p >= 0.05. Applying
         # it only to the truncated estimates would imply the whole-event qu850
         # point was significant, which it is not.
-        for table, shift, marker, colour, size in [(whole, -offset, "s", WHOLE_BLUE, 6),
-                                                    (cut, offset, "o", PRE_CG_BLUE, 7)]:
+        for table, shift, marker, colour, size in [(whole, -offset, "s", WHOLE_BLUE, 4),
+                                                    (cut, offset, "o", PRE_CG_BLUE, 4.5)]:
             significant = table.p_bh < .05
             for mask, face in [(significant, colour), (~significant, "white")]:
                 if not mask.any():
@@ -64,18 +64,17 @@ def plot(effects_path: Path, output: Path) -> None:
                             xerr=[sub.standardized_difference - sub.standardized_ci95_lower,
                                   sub.standardized_ci95_upper - sub.standardized_difference],
                             fmt=marker, color=colour, markerfacecolor=face, markersize=size,
-                            capsize=3, linewidth=1.1, zorder=3 if marker == "s" else 4)
+                            capsize=2.5, linewidth=1, zorder=3 if marker == "s" else 4)
 
         ax.axvline(0, color="black", lw=.8)
         ax.set_yticks(list(y), TICKS)
         ax.invert_yaxis()
         ax.grid(axis="x", alpha=.2)
-        ax.text(-.14, 1.04, letter, transform=ax.transAxes, fontsize=11, fontweight="bold",
-                va="top", ha="left")
     axs[1].set_xlabel("Standardized compound − non-compound difference")
-    fig.tight_layout()
+    fig.tight_layout(h_pad=1.6)
+    label_panels(fig, axs, "ab", align=True)
     output.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(output, dpi=1200)
+    fig.savefig(output, dpi=1200, bbox_inches="tight")
     plt.close(fig)
     print(output)
 

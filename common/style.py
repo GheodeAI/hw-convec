@@ -30,6 +30,9 @@ def label_panels(fig, axes, letters, dy=3, align=False):
     puts all letters on the leftmost of those corners, for stacked panels.
     Call once the layout is final (after tight_layout / subplots_adjust)."""
     fig.canvas.draw()
+    # Freeze the layout: a constrained layout would otherwise be recomputed at
+    # savefig and move the axes away from the letters placed here.
+    fig.set_layout_engine('none')
     renderer = fig.canvas.get_renderer()
     to_fig = fig.transFigure.inverted()
     shift = mtransforms.offset_copy(fig.transFigure, fig=fig, y=dy, units='points')

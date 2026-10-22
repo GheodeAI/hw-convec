@@ -189,10 +189,10 @@ def balance(out,only_descriptive=False):
     label_panels(fig,[map_a,map_b,month_ax,*cdf,year_ax],'abcdefg')
     save(fig,out,'06_descriptive_balance',dpi=600)
     if only_descriptive:return
-    fig,ax=plt.subplots(figsize=(10,6));ys=np.arange(len(cov))
+    fig,ax=plt.subplots(figsize=(MID_WIDTH,3.2));ys=np.arange(len(cov))
     before=abs(b.loc[cov,'smd_before'].values);after=abs(b.loc[cov,'smd_after'].values)
-    for y,x1,x2 in zip(ys,before,after):ax.annotate('',xy=(x2,y),xytext=(x1,y),arrowprops=dict(arrowstyle='->',ls='--',color='grey',lw=2))
-    ax.scatter(before,ys,c='#ec5353',s=100);ax.scatter(after,ys,c='#4e79a7',s=100,marker='s');ax.axvline(.1,c='grey',ls='--');ax.set_yticks(ys,names);ax.invert_yaxis();ax.set(xlabel='Absolute standardized mean difference');ax.grid(axis='x',alpha=.2);fig.tight_layout();save(fig,out,'07_match_balance')
+    for y,x1,x2 in zip(ys,before,after):ax.annotate('',xy=(x2,y),xytext=(x1,y),arrowprops=dict(arrowstyle='->',ls='--',color='grey',lw=1.2))
+    ax.scatter(before,ys,c='#ec5353',s=36);ax.scatter(after,ys,c='#4e79a7',s=36,marker='s');ax.axvline(.1,c='grey',ls='--',lw=.9);ax.set_yticks(ys,names);ax.invert_yaxis();ax.set(xlabel='Absolute standardized mean difference');ax.grid(axis='x',alpha=.2);fig.tight_layout();save(fig,out,'07_match_balance')
 
 def adjusted_environment_plot(out):
     before=pd.read_csv(out/'tables/environment_before_after.csv').set_index('variable').loc[ORDER]
@@ -244,8 +244,8 @@ def spatial(out):
         with np.load(p) as d:
             ii=np.array([index[eid] for eid in d['event_ids']],dtype=np.intp);sm[ii]+=d['sums'];n[ii]+=d['counts']
     values=np.divide(sm,n,out=np.full(sm.shape,np.nan),where=n>0);del sm,n
-    fig,axs=plt.subplots(2,3,figsize=(16.5,9));offset=np.arange(-8,8.001,.25);maps={}
-    for ax,v,c in zip(axs.flat,ORDER,'abcdef'):
+    fig,axs=plt.subplots(2,3,figsize=(FULL_WIDTH,4.1));offset=np.arange(-8,8.001,.25);maps={}
+    for i,(ax,v) in enumerate(zip(axs.flat,ORDER)):
         j=MATCHV.index(v);a=values[e.has_lightning,j];b=values[~e.has_lightning,j]
         na=np.isfinite(a).sum(axis=0);nb=np.isfinite(b).sum(axis=0)
         with np.errstate(invalid='ignore'):
@@ -253,11 +253,15 @@ def spatial(out):
         diff[(na<10)|(nb<10)]=np.nan
         lim=np.nanquantile(abs(diff),.98);lim=max(lim,1e-12)
         mesh=ax.pcolormesh(offset,offset,diff,cmap='RdBu_r',vmin=-lim,vmax=lim,shading='auto',rasterized=True)
-        sig=(p<.05)&np.isfinite(diff);yy,xx=np.meshgrid(offset,offset,indexing='ij');ax.scatter(xx[sig],yy[sig],s=.12,c='black',alpha=.4,rasterized=True)
-        ax.axhline(0,c='grey',lw=.7);ax.axvline(0,c='grey',lw=.7);ax.set(xlabel='Lon offset (deg)',ylabel='Lat offset (deg)');letter(ax,c);fig.colorbar(mesh,ax=ax,extend='both').set_label(UNITS[v])
+        sig=(p<.05)&np.isfinite(diff);yy,xx=np.meshgrid(offset,offset,indexing='ij');ax.scatter(xx[sig],yy[sig],s=.05,c='black',alpha=.4,linewidth=0,rasterized=True)
+        ax.axhline(0,c='grey',lw=.6);ax.axvline(0,c='grey',lw=.6);ax.set_aspect('equal')
+        ax.set_xticks([-8,-4,0,4,8]);ax.set_yticks([-8,-4,0,4,8])
+        if i>=3:ax.set_xlabel('Longitude offset (°)')
+        if i%3==0:ax.set_ylabel('Latitude offset (°)')
+        fig.colorbar(mesh,ax=ax,extend='both',shrink=.9,pad=.03).set_label(UNITS[v])
         maps[v+'_difference']=(('lat_offset','lon_offset'),diff);maps[v+'_p_value']=(('lat_offset','lon_offset'),p);maps[v+'_n_compound']=(('lat_offset','lon_offset'),na);maps[v+'_n_noncompound']=(('lat_offset','lon_offset'),nb)
     xr.Dataset(maps,coords=dict(lat_offset=offset,lon_offset=offset),attrs=dict(center='land-event positive-excess intensity-weighted centre',average='time mean at each relative-coordinate pixel per event, then equal-weight event means',environment='sea retained; out-of-domain pixels missing',test='pointwise Welch p<0.05; no multiplicity adjustment; at least 10 events/group',matching='before matching')).to_netcdf(out/'data/event_centered_environment.nc')
-    fig.tight_layout();save(fig,out,'05_event_centered_environment',dpi=600)
+    fig.tight_layout(w_pad=.4,h_pad=1.2);label_panels(fig,axs.flat,'abcdef');save(fig,out,'05_event_centered_environment',dpi=600)
 
 def curves(out):
     d=pd.read_parquet(out/'data/first_cg_event_values.parquet'); variables=['tcwv','cape','cin','omega700'];summary=[];changes=[]

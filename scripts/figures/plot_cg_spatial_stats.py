@@ -10,12 +10,9 @@ import struct
 import sys
 
 import matplotlib.pyplot as plt
-plt.rcParams.update({"font.family": "sans-serif", "font.sans-serif": ["Arial", "Helvetica", "DejaVu Sans"],
-    "font.size": 9, "axes.titlesize": 10, "axes.labelsize": 10, "legend.fontsize": 8,
-    "xtick.labelsize": 8, "ytick.labelsize": 8})
 import matplotlib.colors as mcolors
 from matplotlib.path import Path as MplPath
-from matplotlib.ticker import MaxNLocator
+from matplotlib.ticker import MaxNLocator, MultipleLocator
 import numpy as np
 import pandas as pd
 import xarray as xr
@@ -40,10 +37,9 @@ TEN_M_COUNTRIES_SHAPEFILE = (
 )
 DEFAULT_SHAPEFILE = TEN_M_COUNTRIES_SHAPEFILE if TEN_M_COUNTRIES_SHAPEFILE.exists() else COUNTRIES_SHAPEFILE
 from common.config import MANUSCRIPT_FIGURES_DIR
+from common.style import BLUE, FULL_WIDTH, apply_style, label_panels
 
-
-def panel_letter(ax, c):
-    ax.text(-.14, 1.08, c, transform=ax.transAxes, fontsize=11, fontweight="bold", va="top", ha="left")
+apply_style()
 DIFFERENCE_COLORS = [
     (0.0, "#b9ddea"),
     (0.35, "#edf5f7"),
@@ -67,6 +63,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--figures-dir", default=str(COMPOUND_FIGURES_DIR / "cg_spatial_stats"))
     parser.add_argument("--data-dir", default=str(COMPOUND_DATA_DIR / "cg_spatial_stats"))
     parser.add_argument("--shapefile", default=str(DEFAULT_SHAPEFILE))
+    parser.add_argument("--replot", action="store_true",
+                        help="Redraw from the saved NetCDF/CSV instead of recomputing from the hourly CG files.")
     return parser.parse_args()
 
 
@@ -305,7 +303,7 @@ def draw_boundaries(ax: plt.Axes, shapefile: Path | None, xlim: tuple[float, flo
             or coords[:, 1].min() > lat_max
         ):
             continue
-        ax.plot(coords[:, 0], coords[:, 1], color="0.15", lw=0.45, alpha=0.8)
+        ax.plot(coords[:, 0], coords[:, 1], color="#555555", lw=0.35)
 
 
 def finite_vmax(data: xr.DataArray) -> float:
@@ -343,7 +341,7 @@ def add_significance_stippling(ax: plt.Axes, ds: xr.Dataset, field: xr.DataArray
         ax.scatter(
             ds.longitude.values[x_idx],
             ds.latitude.values[y_idx],
-            s=2.0,
+            s=0.4,
             marker=".",
             color=color,
             alpha=0.75,
@@ -354,12 +352,13 @@ def add_significance_stippling(ax: plt.Axes, ds: xr.Dataset, field: xr.DataArray
 
 def plot_stats(ds: xr.Dataset, output_path: Path, start_year: int, end_year: int, shapefile: Path | None) -> None:
     panels = [
-        ("mean_annual_cg_days", "Mean annual CG days", "days yr$^{-1}$", "YlOrRd"),
-        ("mean_cg_day_flash_intensity", "Mean CG-day intensity", "flashes day$^{-1}$", "YlOrRd"),
-        ("theil_sen_slope_cg_days", "Theil-Sen slope of CG days", "days yr$^{-2}$", "RdBu_r"),
+        ("mean_annual_cg_days", "Mean annual CG days", "Days yr$^{-1}$", "YlOrRd"),
+        ("mean_cg_day_flash_intensity", "Mean CG-day intensity", "Flashes day$^{-1}$", "YlOrRd"),
+        ("theil_sen_slope_cg_days", "Theil-Sen slope of CG days", "Days yr$^{-2}$", "RdBu_r"),
     ]
-    fig, axes = plt.subplots(1, 3, figsize=(15, 5.2), constrained_layout=True)
-    for ax, (name, title, label, cmap_name), c in zip(axes, panels, "abc"):
+    # Same layout as Fig 1: maps at equal aspect with the colour bar underneath.
+    fig, axes = plt.subplots(1, 3, figsize=(FULL_WIDTH, 3.3), constrained_layout=True)
+    for ax, (name, title, label, cmap_name) in zip(axes, panels):
         data = ds[name].where(ds[name] > 0) if cmap_name != "RdBu_r" else ds[name]
         if cmap_name == "RdBu_r":
             cmap = mcolors.LinearSegmentedColormap.from_list("difference_soft_continuous", DIFFERENCE_COLORS)
@@ -383,17 +382,19 @@ def plot_stats(ds: xr.Dataset, output_path: Path, start_year: int, end_year: int
         ax.set_ylabel("Latitude")
         ax.set_xlim(float(ds.longitude.min()), float(ds.longitude.max()))
         ax.set_ylim(float(ds.latitude.min()), float(ds.latitude.max()))
-        ax.grid(alpha=0.2)
+        ax.set_aspect("equal")
+        ax.xaxis.set_major_locator(MultipleLocator(10))
+        ax.yaxis.set_major_locator(MultipleLocator(10))
         draw_boundaries(ax, shapefile, ax.get_xlim(), ax.get_ylim())
         if cmap_name == "RdBu_r":
             add_significance_stippling(ax, ds, data)
-        panel_letter(ax, c)
-        cbar = fig.colorbar(mesh, ax=ax, shrink=0.88, fraction=0.025, aspect=36)
+        cbar = fig.colorbar(mesh, ax=ax, orientation="horizontal", fraction=0.05, pad=0.04)
         cbar.set_label(label)
+    label_panels(fig, axes, "abc")
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(output_path, dpi=600)
+    fig.savefig(output_path, dpi=600, bbox_inches="tight")
     MANUSCRIPT_FIGURES_DIR.mkdir(parents=True, exist_ok=True)
-    fig.savefig(MANUSCRIPT_FIGURES_DIR / "17_euclid_cg_mean_days_intensity.png", dpi=600)
+    fig.savefig(MANUSCRIPT_FIGURES_DIR / "17_euclid_cg_mean_days_intensity.png", dpi=600, bbox_inches="tight")
     plt.close(fig)
 
 
@@ -408,30 +409,32 @@ def p_label(p_value: float) -> str:
 def plot_series_with_trend(ax: plt.Axes, years: np.ndarray, values: np.ndarray, ylabel: str, color: str) -> None:
     years = np.asarray(years, dtype=float)
     values = np.asarray(values, dtype=float)
-    ax.plot(years, values, color=color, marker="o", linewidth=2.0, markersize=4.5)
+    ax.plot(years, values, color=color, marker="o", linewidth=1.3, markersize=3.5)
     ax.set_ylabel(ylabel)
     ax.grid(axis="y", alpha=0.25)
     ax.xaxis.set_major_locator(MaxNLocator(integer=True))
 
 
 def plot_annual_timeseries(df: pd.DataFrame, output_path: Path, start_year: int, end_year: int) -> None:
-    fig, axes = plt.subplots(1, 2, figsize=(12, 4.8), constrained_layout=True, sharex=True)
+    fig, axes = plt.subplots(1, 2, figsize=(FULL_WIDTH, 2.8), constrained_layout=True, sharex=True)
     years = df["year"].to_numpy(dtype=float)
     panels = [
-        ("mean_cg_days", "Days yr$^{-1}$", "tab:blue"),
-        ("mean_cg_day_flash_intensity", "flashes day$^{-1}$", "tab:orange"),
+        ("mean_cg_days", "Days yr$^{-1}$", BLUE),
+        ("mean_cg_day_flash_intensity", "Flashes day$^{-1}$", BLUE),
     ]
-    for ax, (column, ylabel, color), c in zip(axes, panels, "ab"):
+    for ax, (column, ylabel, color) in zip(axes, panels):
         plot_series_with_trend(ax, years, df[column].to_numpy(dtype=float), ylabel, color)
         ax.set_xlim(years.min() - 0.5, years.max() + 0.5)
-        ax.set_xticks(years)
+        ax.set_xticks(years[::2])
+        ax.set_xticks(years, minor=True)
         ax.tick_params(axis="x", rotation=45)
         ax.set_xlabel("Year")
-        panel_letter(ax, c)
+    label_panels(fig, axes, "ab")
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(output_path, dpi=1200, facecolor="white")
+    fig.savefig(output_path, dpi=1200, facecolor="white", bbox_inches="tight")
     MANUSCRIPT_FIGURES_DIR.mkdir(parents=True, exist_ok=True)
-    fig.savefig(MANUSCRIPT_FIGURES_DIR / "16_euclid_cg_annual_timeseries.png", dpi=1200, facecolor="white")
+    fig.savefig(MANUSCRIPT_FIGURES_DIR / "16_euclid_cg_annual_timeseries.png", dpi=1200, facecolor="white",
+                bbox_inches="tight")
     plt.close(fig)
 
 
@@ -440,7 +443,6 @@ def main() -> None:
     years = list(range(args.start_year, args.end_year + 1))
     months = sorted(set(args.months))
     shapefile = Path(args.shapefile) if args.shapefile else None
-    ds, annual = calculate_stats(Path(args.cg_dir), years, months, shapefile)
     stem = compact_stem(f"euclid_cg_mean_days_intensity_{args.start_year}_{args.end_year}")
     annual_stem = compact_stem(f"euclid_cg_annual_timeseries_{args.start_year}_{args.end_year}")
     data_dir = ensure_dir(args.data_dir)
@@ -449,8 +451,13 @@ def main() -> None:
     fig_path = figures_dir / f"{figure_stem(stem)}.png"
     csv_path = data_dir / f"{annual_stem}.csv"
     annual_fig_path = figures_dir / f"{figure_stem(annual_stem)}.png"
-    ds.to_netcdf(nc_path)
-    annual.to_csv(csv_path, index=False, float_format="%.4f", lineterminator="\n")
+    if args.replot:
+        ds = xr.load_dataset(nc_path)
+        annual = pd.read_csv(csv_path)
+    else:
+        ds, annual = calculate_stats(Path(args.cg_dir), years, months, shapefile)
+        ds.to_netcdf(nc_path)
+        annual.to_csv(csv_path, index=False, float_format="%.4f", lineterminator="\n")
     plot_stats(ds, fig_path, args.start_year, args.end_year, shapefile)
     plot_annual_timeseries(annual, annual_fig_path, args.start_year, args.end_year)
     print(f"Wrote {nc_path}", flush=True)

@@ -65,8 +65,8 @@ figures() {
     py $F/plot_standalone_heatwave_probability.py --source "$RUN" # Fig 2
     py $F/analyze_first_cg_peak_intensity_timing.py --out "$RUN"  # Fig 5
     py $F/recompute_first_cg_curves_clustered.py --out "$RUN"     # Fig 6, 7
-    py $F/plot_heatwave_europe_historical_spatial.py              # Fig S1
-    py $F/plot_heatwave_europe_annual_timeseries.py               # Fig S2
+    py $F/plot_heatwave_europe_historical_spatial.py --threshold 90p+20   # Fig S1
+    py $F/plot_heatwave_europe_annual_timeseries.py --threshold 90p+20 --cg-domain  # Fig S2
     py $F/plot_cg_spatial_stats.py                                # Fig S3, S4
     py $F/plot_compound_event_location_density.py --sources euclid_cg  # Fig S5
     py $F/compare_wetbulb_methods.py                              # Fig S9

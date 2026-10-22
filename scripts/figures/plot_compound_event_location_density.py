@@ -11,10 +11,8 @@ import struct
 import sys
 
 import matplotlib.pyplot as plt
-plt.rcParams.update({"font.family": "sans-serif", "font.sans-serif": ["Arial", "Helvetica", "DejaVu Sans"],
-    "font.size": 9, "axes.titlesize": 10, "axes.labelsize": 10, "legend.fontsize": 8,
-    "xtick.labelsize": 8, "ytick.labelsize": 8})
 import matplotlib.colors as mcolors
+from matplotlib.ticker import MultipleLocator
 import numpy as np
 import pandas as pd
 import xarray as xr
@@ -60,6 +58,9 @@ DIFFERENCE_COLORS = [
     (1.0, "#d9793d"),
 ]
 from common.config import MANUSCRIPT_FIGURES_DIR
+from common.style import MID_WIDTH, apply_style
+
+apply_style()
 
 
 def panel_letter(ax, c):
@@ -446,7 +447,7 @@ def draw_boundaries(ax: plt.Axes, shapefile: Path | None, xlim: tuple[float, flo
             or coords[:, 1].min() > lat_max
         ):
             continue
-        ax.plot(coords[:, 0], coords[:, 1], color="0.15", lw=0.45, alpha=0.8)
+        ax.plot(coords[:, 0], coords[:, 1], color="#555555", lw=0.35)
 
 
 def plot_density_maps(
@@ -459,7 +460,7 @@ def plot_density_maps(
 ) -> None:
     n_panels = len(datasets)
     if n_panels == 1:
-        fig, ax = plt.subplots(1, 1, figsize=(7.6, 5.8), constrained_layout=True)
+        fig, ax = plt.subplots(1, 1, figsize=(MID_WIDTH, 4.6), constrained_layout=True)
         axes = [ax]
     else:
         fig, axes = plt.subplots(1, n_panels, figsize=(7.0 * n_panels, 5.5), constrained_layout=True)
@@ -478,11 +479,14 @@ def plot_density_maps(
         ax.set_ylabel("Latitude")
         ax.set_xlim(float(ds["longitude"].min()), float(ds["longitude"].max()))
         ax.set_ylim(float(ds["latitude"].min()), float(ds["latitude"].max()))
+        ax.set_aspect("equal")
+        ax.xaxis.set_major_locator(MultipleLocator(10))
+        ax.yaxis.set_major_locator(MultipleLocator(10))
         draw_boundaries(ax, shapefile, ax.get_xlim(), ax.get_ylim())
         if n_panels > 1:
             panel_letter(ax, c)
-        cb = fig.colorbar(mesh, ax=ax, shrink=0.88)
-        cb.set_label("events yr$^{-1}$ gridcell$^{-1}$")
+        cb = fig.colorbar(mesh, ax=ax, orientation="horizontal", fraction=0.05, pad=0.04)
+        cb.set_label("Events yr$^{-1}$ grid cell$^{-1}$")
 
     fig.savefig(output_path, dpi=600)
     if len(datasets) == 1 and datasets[0][0] == "EUCLID CG":
