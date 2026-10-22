@@ -23,16 +23,20 @@ def panel_letter(ax, c, x=-.14, y=1.08):
     ax.text(x, y, c, transform=ax.transAxes, fontsize=11, fontweight='bold', va='top', ha='left')
 
 
-def label_panels(fig, axes, letters, dy=3):
+def label_panels(fig, axes, letters, dy=3, align=False):
     """Bold letters at the top-left corner of each panel's full extent (frame
     plus tick and axis labels), dy points above the frame, so every letter
-    sits at its panel's outer corner whatever the label widths. Call once the
-    layout is final (after tight_layout / subplots_adjust)."""
+    sits at its panel's outer corner whatever the label widths. align=True
+    puts all letters on the leftmost of those corners, for stacked panels.
+    Call once the layout is final (after tight_layout / subplots_adjust)."""
     fig.canvas.draw()
     renderer = fig.canvas.get_renderer()
     to_fig = fig.transFigure.inverted()
     shift = mtransforms.offset_copy(fig.transFigure, fig=fig, y=dy, units='points')
-    for ax, c in zip(axes, letters):
-        x0 = to_fig.transform((ax.get_tightbbox(renderer).x0, 0))[0]
+    axes = list(axes)
+    lefts = [to_fig.transform((ax.get_tightbbox(renderer).x0, 0))[0] for ax in axes]
+    if align:
+        lefts = [min(lefts)] * len(lefts)
+    for ax, c, x0 in zip(axes, letters, lefts):
         fig.text(x0, ax.get_position().y1, c, transform=shift, fontsize=11,
                  fontweight='bold', va='bottom', ha='left')

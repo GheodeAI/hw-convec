@@ -91,10 +91,34 @@ def panel_intensity_enhancement(ax,raw,base):
     ax.grid(axis='y',alpha=.25)
     return ratio,tau,p
 
-def panel_intensity_fe(ax,a):
-    ax.fill_between(a.q,a.bootstrap_ci95_lower*100,a.bootstrap_ci95_upper*100,color=BLUE,alpha=.18)
-    ax.plot(a.q,a.adjusted_probability*100,'o-',c=BLUE,lw=1.6,ms=5);ax.set_xticks(range(1,6),[f'Q{i}' for i in range(1,6)])
-    ax.set(xlabel='Heatwave intensity quintile',ylabel='Adjusted CG occurrence probability (%)');ax.grid(axis='y',alpha=.25)
+# Light to dark blue, ending on the heatwave blue used in Fig 2.
+QUINTILE_COLORS=['#a9cbe6','#84b2d6','#5f98c4','#3b7fb4',BLUE]
+
+def retained_mean_excess(out):
+    """Mean Tw excess per quintile in the FE estimation sample: the cell-month
+    strata with CG variation that fit_land_intensity.py retains."""
+    s=pd.read_parquet(out/'data/intensity_sample.parquet',columns=['cell','month','q','exposure','cg'])
+    stratum=s.cell.to_numpy()*12+s.month.to_numpy()
+    _,gi=np.unique(stratum,return_inverse=True)
+    n=np.bincount(gi);k=np.bincount(gi,weights=s.cg)
+    keep=((k>0)&(k<n))[gi]
+    retained_n=json.loads((out/'tables/quintile_diagnostics.json').read_text())['retained_n']
+    assert keep.sum()==retained_n,'quintile estimation sample not reproduced'
+    m=s[keep].groupby('q').exposure.agg(['mean','size']).rename(columns={'mean':'mean_excess','size':'n'})
+    m.to_csv(out/'tables/quintile_retained_mean_excess.csv')
+    return m.mean_excess.to_numpy()
+
+def panel_intensity_fe(ax,a,mean_excess):
+    # Each quintile is drawn at its mean Tw excess, so the spacing shows how
+    # much hotter each quintile is; the top axis keeps the quintile labels.
+    p=a.adjusted_probability.to_numpy()*100;lo=a.bootstrap_ci95_lower.to_numpy()*100;hi=a.bootstrap_ci95_upper.to_numpy()*100
+    ax.plot(mean_excess,p,c='#b5b5b5',lw=1.2,zorder=2)
+    for x,y,l,h,c in zip(mean_excess,p,lo,hi,QUINTILE_COLORS):
+        ax.errorbar(x,y,yerr=[[y-l],[h-y]],fmt='none',ecolor=c,elinewidth=1.6,capsize=3.5,zorder=3)
+        ax.scatter(x,y,s=60,color=c,edgecolor='white',linewidth=.8,zorder=4)
+    ax.set(xlabel='Mean wet-bulb excess above the local threshold (°C)',ylabel='Adjusted CG occurrence probability (%)',xlim=(0,np.ceil(mean_excess.max()*2+1)/2))
+    top=ax.secondary_xaxis('top');top.set_xticks(mean_excess,[f'Q{i}' for i in a.q]);top.tick_params(axis='x',length=3)
+    ax.grid(axis='y',alpha=.25)
 
 def quintiles(out):
     raw=pd.read_csv(out/'tables/quintile_raw.csv'); base=pd.read_csv(out/'tables/occurrence_probability.csv').p_all.iloc[0]
@@ -103,9 +127,9 @@ def quintiles(out):
     fig.tight_layout();save(fig,out,'02_intensity_enhancement')
     raw.assign(p_climatology=base,enhancement_ratio=ratio,kendall_tau=tau,kendall_p=p).to_csv(out/'tables/intensity_enhancement.csv',index=False)
 
-    a=pd.read_csv(out/'tables/quintile_adjusted.csv')
+    a=pd.read_csv(out/'tables/quintile_adjusted.csv').sort_values('q')
     fig,ax=plt.subplots(figsize=(MID_WIDTH,3.2))
-    panel_intensity_fe(ax,a)
+    panel_intensity_fe(ax,a,retained_mean_excess(out))
     fig.tight_layout();save(fig,out,'03_intensity_FE')
 
 def balance(out,only_descriptive=False):
