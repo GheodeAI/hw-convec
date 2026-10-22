@@ -1,5 +1,7 @@
 # hw-convec
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23560242.svg)](https://doi.org/10.5281/zenodo.23560242)
+
 Code for **"Cloud-to-ground lightning is enhanced during European wet-bulb heatwaves"**
 by Yulin Zou, Jorge Pérez-Aracil, Jürg Luterbacher, Elena Xoplaki and Sancho Salcedo-Sanz (in preparation).
 
@@ -78,6 +80,14 @@ The main run is written to `outputs/run_90p20/`. Several steps refuse to overwri
 output directory; for a fresh rerun set another target, e.g. `RUN=outputs/run_rerun bash scripts/run_all.sh main`.
 The mapping from working figure names to paper figure numbers is in
 `scripts/figures/collect_manuscript_figures.py`.
+
+## Citation
+
+If you use this code, please cite the archived release:
+
+> Zou, Y., Pérez-Aracil, J., Luterbacher, J., Xoplaki, E., & Salcedo-Sanz, S. (2026). hw-convec: code for
+> "Cloud-to-ground lightning is enhanced during European wet-bulb heatwaves". Zenodo.
+> https://doi.org/10.5281/zenodo.23560242
 
 ## Contact
 
