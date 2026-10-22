@@ -1,0 +1,43 @@
+{
+  "title": "hw-convec: code for \"Cloud-to-ground lightning is enhanced during European wet-bulb heatwaves\"",
+  "description": "<p>Analysis code for \"Cloud-to-ground lightning is enhanced during European wet-bulb heatwaves\" by Yulin Zou, Jorge Pérez-Aracil, Jürg Luterbacher, Elena Xoplaki and Sancho Salcedo-Sanz.</p><p>The code identifies wet-bulb heatwaves in ERA5, combines them with EUCLID cloud-to-ground lightning observations over European land (2006–2025, April–September), and reproduces the fixed-effects occurrence models, the matched environmental comparison, the composites around the first lightning flash, the sensitivity analyses and all figures of the paper.</p><p>EUCLID lightning data are licensed and are not included; see the README for data access and instructions to reproduce the results.</p>",
+  "upload_type": "software",
+  "access_right": "open",
+  "license": "MIT",
+  "creators": [
+    {
+      "name": "Zou, Yulin",
+      "affiliation": "Universidad de Alcalá",
+      "orcid": "0009-0006-3456-5888"
+    },
+    {
+      "name": "Pérez-Aracil, Jorge",
+      "affiliation": "Universidad de Alcalá",
+      "orcid": "0000-0002-4456-9886"
+    },
+    {
+      "name": "Luterbacher, Jürg",
+      "affiliation": "Justus-Liebig-Universität Gießen",
+      "orcid": "0000-0002-8569-0973"
+    },
+    {
+      "name": "Xoplaki, Elena",
+      "affiliation": "CMCC Foundation - Euro-Mediterranean Center on Climate Change",
+      "orcid": "0000-0002-2745-2467"
+    },
+    {
+      "name": "Salcedo-Sanz, Sancho",
+      "affiliation": "Universidad de Alcalá",
+      "orcid": "0000-0002-4048-1676"
+    }
+  ],
+  "keywords": [
+    "wet-bulb heatwaves",
+    "cloud-to-ground lightning",
+    "deep convection",
+    "compound events",
+    "ERA5",
+    "EUCLID",
+    "Europe"
+  ]
+}
