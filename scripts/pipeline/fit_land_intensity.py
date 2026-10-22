@@ -8,11 +8,9 @@ import numpy as np
 import pandas as pd
 from scipy import sparse, stats
 from scipy.special import expit
-import matplotlib
-matplotlib.use('Agg')
-import matplotlib.pyplot as plt
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from common.analysis_inputs import input_path
 from common.config import YEARS
 from common.io import dump
 
@@ -57,10 +55,12 @@ def influence(g,z,a,b,schur,resid,grad_a,grad_b):
     return (v_a[g]+z@v_b)*resid[:,None]
 
 def main(out):
-    events=pd.read_csv(out/'tables/regional_events.csv').set_index('event_id')
+    (out/'intensity/data').mkdir(parents=True, exist_ok=True)
+    (out/'intensity/tables').mkdir(parents=True, exist_ok=True)
+    events=pd.read_csv(out/'events/regional_events.csv').set_index('event_id')
     chunks=[]
     for year in YEARS:
-        with np.load(out/f'data/daily_{year}.npz') as d:
+        with np.load(input_path(out, f'daily_{year}.npz')) as d:
             dates=pd.DatetimeIndex(d['dates']); h=d['hw']; ex=d['excess']; lab=d['event']
             valid=h & (ex>0) & np.isfinite(ex) & (lab>0)
             valid&=((dates.month>=4)&(dates.month<=9))[:,None]
@@ -71,9 +71,9 @@ def main(out):
     edges=np.quantile(df.exposure,[0,.2,.4,.6,.8,1])
     df['q']=np.searchsorted(edges[1:-1],df.exposure,side='left')+1
     df['duration']=events.loc[df.event_id,'duration'].to_numpy()
-    df.to_parquet(out/'data/intensity_sample.parquet',index=False)
+    df.to_parquet(out/'intensity/data/intensity_sample.parquet',index=False)
     raw=df.groupby('q').agg(n=('cg','size'),cg_days=('cg','sum'),p_cg=('cg','mean'),mean_excess=('exposure','mean')).reset_index()
-    raw.to_csv(out/'tables/quintile_raw.csv',index=False)
+    raw.to_csv(out/'intensity/tables/quintile_raw.csv',index=False)
     strata=df.cell.to_numpy()*12+df.month.to_numpy()
     _,gi=np.unique(strata,return_inverse=True)
     n=np.bincount(gi); s=np.bincount(gi,weights=df.cg)
@@ -86,9 +86,9 @@ def main(out):
                original_scripts='absent; categorical quintile and ordered FE reimplemented from output metadata')
     df=df.loc[retain].copy(); _,g=np.unique(strata[retain],return_inverse=True)
     retained_raw=df.groupby('q').agg(n=('cg','size'),cg_days=('cg','sum'),p_cg=('cg','mean')).reset_index()
-    retained_raw.to_csv(out/'tables/quintile_raw_retained.csv',index=False)
+    retained_raw.to_csv(out/'intensity/tables/quintile_raw_retained.csv',index=False)
     coverage=df.assign(stratum=g).groupby('stratum').q.nunique()
-    coverage.value_counts().sort_index().rename_axis('n_quintiles').rename('n_strata').to_csv(out/'checks/quintile_stratum_coverage.csv')
+    coverage.value_counts().sort_index().rename_axis('n_quintiles').rename('n_strata').to_csv(out/'intensity/tables/quintile_stratum_coverage.csv')
     q=df.q.to_numpy(); year=df.year.to_numpy()-2006; duration=df.duration.to_numpy(float)
     dm,ds=duration.mean(),duration.std(); duration=(duration-dm)/ds
     nobs=len(df); row=np.arange(nobs)
@@ -119,7 +119,7 @@ def main(out):
     se=np.sqrt(np.diag(covariance)); margins=np.asarray(margins)
     diff=margins[4]-margins[0]; dse=np.sqrt(covariance[4,4]+covariance[0,0]-2*covariance[4,0])
     result=pd.DataFrame(dict(q=np.arange(1,6),adjusted_probability=margins,se=se[:5],ci95_lower=margins-1.96*se[:5],ci95_upper=margins+1.96*se[:5]))
-    result.to_csv(out/'tables/quintile_adjusted.csv',index=False)
+    result.to_csv(out/'intensity/tables/quintile_adjusted.csv',index=False)
     rng=np.random.default_rng(20260914)
     boot=np.empty((1000,5))
     for k in range(1000):
@@ -127,11 +127,11 @@ def main(out):
         boot[k]=margins+(multiplicity-1)@scores[:,:5]
     result['bootstrap_ci95_lower']=np.quantile(boot,.025,axis=0)
     result['bootstrap_ci95_upper']=np.quantile(boot,.975,axis=0)
-    result.to_csv(out/'tables/quintile_adjusted.csv',index=False)
-    np.save(out/'data/quintile_cluster_bootstrap.npy',boot)
+    result.to_csv(out/'intensity/tables/quintile_adjusted.csv',index=False)
+    np.save(out/'intensity/data/quintile_cluster_bootstrap.npy',boot)
     pd.DataFrame(dict(q=np.arange(2,6),log_odds=coef[20:],se=se[5:],odds_ratio=np.exp(coef[20:]),
-                     or_ci95_lower=np.exp(coef[20:]-1.96*se[5:]),or_ci95_upper=np.exp(coef[20:]+1.96*se[5:]))).to_csv(out/'tables/quintile_coefficients.csv',index=False)
-    pd.DataFrame(trace).to_csv(out/'checks/quintile_convergence.csv',index=False)
+                     or_ci95_lower=np.exp(coef[20:]-1.96*se[5:]),or_ci95_upper=np.exp(coef[20:]+1.96*se[5:]))).to_csv(out/'intensity/tables/quintile_coefficients.csv',index=False)
+    pd.DataFrame(trace).to_csv(out/'intensity/tables/quintile_convergence.csv',index=False)
     del infl
     zo=design(True)
     ao,co,aa,bb,ss,rr,tr=fit(g,zo,y)
@@ -144,9 +144,8 @@ def main(out):
                  ordered_beta_ci95_lower=float(co[-1]-1.96*ose),ordered_beta_ci95_upper=float(co[-1]+1.96*ose),
                  ordered_p=float(2*stats.norm.sf(abs(co[-1]/ose))),
                  inference='regional-event CR1 cluster sandwich, all nuisance effects included in margin delta method; normal 95% CI')
-    dump(out/'tables/quintile_diagnostics.json',audit)
-    np.save(out/'data/quintile_margin_coefficient_covariance.npy',covariance)
-    fig,ax=plt.subplots(figsize=(7,4.5)); ax.plot(raw.q,100*raw.p_cg,'o--',label='Unadjusted (all eligible HW days)'); ax.plot(retained_raw.q,100*retained_raw.p_cg,'s:',label='Unadjusted (retained sample)'); ax.errorbar(np.arange(1,6),100*margins,yerr=196*se[:5],fmt='o-',capsize=4,label='FE-adjusted (retained sample)'); ax.set_xticks(range(1,6),[f'Q{i}' for i in range(1,6)]); ax.set_ylabel('CG occurrence probability (%)'); ax.set_xlabel('Land heatwave intensity quintile'); ax.legend(); fig.tight_layout(); fig.savefig(out/'figures/quintile_probability.png',dpi=200); plt.close(fig)
+    dump(out/'intensity/tables/quintile_diagnostics.json',audit)
+    np.save(out/'intensity/data/quintile_margin_coefficient_covariance.npy',covariance)
     print(audit,flush=True)
 
 if __name__=='__main__':

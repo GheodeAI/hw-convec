@@ -45,7 +45,7 @@ DEFAULT_SHAPEFILE = (
     / "ne_10m_admin_0_countries"
     / "ne_10m_admin_0_countries.shp"
 )
-DEFAULT_OUTPUT_DIR = RUN_DIR / "tables" / "warmseason_fe"
+DEFAULT_OUTPUT_DIR = RUN_DIR / "occurrence" / "tables"
 
 
 @dataclass(frozen=True)

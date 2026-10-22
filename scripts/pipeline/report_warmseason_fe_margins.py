@@ -12,20 +12,25 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from common.analysis_inputs import input_path
 from common.fe_logit import fit_absorbed_logit
 
 
 def daily(source, year):
-    with np.load(source/f'data/daily_{year}.npz') as d:
+    with np.load(input_path(source, f'daily_{year}.npz')) as d:
         dates=pd.DatetimeIndex(d['dates'])
         keep=(dates.month>=4)&(dates.month<=9)
         return dates[keep],d['hw'][keep],d['cg'][keep]
 
 
 def run(source):
-    out=source/'warmseason_fe_report_v1'
-    out.mkdir(exist_ok=False)
-    previous=pd.read_csv(next((source/'tables/warmseason_fe').glob('*summary.csv'))).iloc[0]
+    out=source/'occurrence'
+    out.mkdir(parents=True, exist_ok=True)
+    (out/'tables').mkdir(exist_ok=True)
+    (out/'data').mkdir(exist_ok=True)
+    if (out/'tables/adjusted_effects_95CI.csv').exists():
+        raise FileExistsError(f'Probability report already exists: {out}')
+    previous=pd.read_csv(next((source/'occurrence/tables').glob('cg_hw_fe_logit_*_summary.csv'))).iloc[0]
     nc=int(previous.land_cells); ng=nc*6; ny=20
     counts=np.zeros((ng,ny,2),dtype=np.uint16); successes=np.zeros_like(counts)
     cells=np.arange(nc)
@@ -91,7 +96,7 @@ def run(source):
     covariance=cov_cell+cov_date-cov_intersection
     assert np.all(np.linalg.eigvalsh(covariance)>0)
     assert np.isclose(np.sqrt(covariance[2,2]),previous.heatwave_coefficient_two_way_cluster_se,rtol=1e-7)
-    np.savez_compressed(out/'margin_cluster_covariance.npz',covariance=covariance,cell_component=cov_cell,date_component=cov_date,intersection_component=cov_intersection)
+    np.savez_compressed(out/'data/margin_cluster_covariance.npz',covariance=covariance,cell_component=cov_cell,date_component=cov_date,intersection_component=cov_intersection)
     z=norm.ppf(.975); p0,p1=margins; delta=p1-p0; rr=p1/p0
     gradients=[np.array([1.,0,0]),np.array([0.,1,0]),np.array([-1.,1,0]),np.array([-1/p0,1/p1,0]),np.array([0.,0,1.])]
     effects=[]
@@ -99,31 +104,31 @@ def run(source):
         se=float(np.sqrt(gradient@covariance@gradient))
         lower,upper=(np.exp(np.log(value)+np.array([-1,1])*z*se) if logscale else value+np.array([-1,1])*z*se)
         effects.append(dict(metric=name,estimate=value,ci95_lower=lower,ci95_upper=upper,se_on_log_scale=se if logscale else np.nan,se=se*value if logscale else se))
-    eff=pd.DataFrame(effects); eff.to_csv(out/'adjusted_effects_95CI.csv',index=False)
-    previous.to_frame('value').rename_axis('metric').to_csv(out/'original_model_summary.csv')
+    eff=pd.DataFrame(effects); eff.to_csv(out/'tables/adjusted_effects_95CI.csv',index=False)
+    previous.to_frame('value').rename_axis('metric').to_csv(out/'tables/original_model_summary.csv')
     raw=[]
     for label,sel in [('Unadjusted — full sample',np.ones(ng,dtype=bool)),('Unadjusted — FE-informative sample',retained)]:
         totals2=counts[sel].sum((0,1)); succ2=successes[sel].sum((0,1)); rates=succ2/totals2
         for j in [0,1]:
             raw.append(dict(result=label,heatwave=j,n_records=int(totals2[j]),cg_records=int(succ2[j]),probability=rates[j],probability_difference=rates[1]-rates[0],occurrence_ratio=rates[1]/rates[0]))
-    raw=pd.DataFrame(raw); raw.to_csv(out/'unadjusted_probabilities.csv',index=False)
+    raw=pd.DataFrame(raw); raw.to_csv(out/'tables/unadjusted_probabilities.csv',index=False)
     # Mutually exclusive sequential exclusions, plus joint criteria to expose overlap.
     reasons=np.select([~exposure,exposure&~outcome],['no_heatwave_variation','no_CG_variation_after_exposure_filter'],default='retained')
     audit=pd.DataFrame(dict(reason=reasons,records=n,heatwave_records=nh,nonheatwave_records=n-nh)).groupby('reason').agg(strata=('records','size'),records=('records','sum'),heatwave_records=('heatwave_records','sum'),nonheatwave_records=('nonheatwave_records','sum'))
-    audit.to_csv(out/'sequential_attrition.csv')
-    pd.DataFrame(dict(exposure_varies=exposure,outcome_varies=outcome,records=n)).groupby(['exposure_varies','outcome_varies']).agg(strata=('records','size'),records=('records','sum')).to_csv(out/'joint_exclusion_diagnostics.csv')
-    with np.load(source/'data/grids.npz') as grid:
+    audit.to_csv(out/'tables/sequential_attrition.csv')
+    pd.DataFrame(dict(exposure_varies=exposure,outcome_varies=outcome,records=n)).groupby(['exposure_varies','outcome_varies']).agg(strata=('records','size'),records=('records','sum')).to_csv(out/'tables/joint_exclusion_diagnostics.csv')
+    with np.load(input_path(source, 'grids.npz')) as grid:
         ilat,ilon=np.unravel_index(grid['cg_ids'],grid['cg_land'].shape)
         lat=grid['cg_latitude'][ilat]; lon=grid['cg_longitude'][ilon]
     strata=pd.DataFrame(dict(cell_id=np.repeat(cells,6),latitude=np.repeat(lat,6),longitude=np.repeat(lon,6),month=np.tile(np.arange(4,10),nc),original_records=n,retained_records=np.where(retained,n,0),original_heatwave_records=nh,retained_heatwave_records=np.where(retained,nh,0),retained=retained,reason=reasons))
-    strata.to_csv(out/'cell_month_sample_diagnostics.csv',index=False)
+    strata.to_csv(out/'tables/cell_month_sample_diagnostics.csv',index=False)
     month=strata.groupby('month').agg(original_strata=('retained','size'),retained_strata=('retained','sum'),original_records=('original_records','sum'),retained_records=('retained_records','sum'),original_heatwave_records=('original_heatwave_records','sum'),retained_heatwave_records=('retained_heatwave_records','sum'))
     month['retention_percent']=100*month.retained_records/month.original_records
     month['retained_sample_share_percent']=100*month.retained_records/N
-    month.to_csv(out/'sample_distribution_by_month.csv')
+    month.to_csv(out/'tables/sample_distribution_by_month.csv')
     spatial=strata.groupby(['cell_id','latitude','longitude']).agg(original_records=('original_records','sum'),retained_records=('retained_records','sum'),retained_month_strata=('retained','sum')).reset_index()
     spatial['retention_percent']=100*spatial.retained_records/spatial.original_records
-    spatial.to_csv(out/'sample_distribution_by_cell.csv',index=False)
+    spatial.to_csv(out/'tables/sample_distribution_by_cell.csv',index=False)
     bands=[]
     for coord,edges in [('latitude',[35,45,55,65,75]),('longitude',[-15,0,15,30,45])]:
         for lo,hi in zip(edges[:-1],edges[1:]):
@@ -131,7 +136,7 @@ def run(source):
             original=int(sub.original_records.sum()); kept=int(sub.retained_records.sum())
             bands.append(dict(coordinate=coord,lower=lo,upper=hi,original_records=original,retained_records=kept,retention_percent=100*kept/original if original else np.nan,retained_sample_share_percent=100*kept/N))
         assert sum(r['original_records'] for r in bands if r['coordinate']==coord)==int(n.sum())
-    pd.DataFrame(bands).to_csv(out/'sample_distribution_by_geographic_band.csv',index=False)
+    pd.DataFrame(bands).to_csv(out/'tables/sample_distribution_by_geographic_band.csv',index=False)
     from plot_warmseason_probability_report import plot
     plot(out)
     metadata=dict(status='passed',original_records=int(n.sum()),retained_records=N,retained_fraction=N/int(n.sum()),original_strata=ng,retained_strata=G,cell_clusters=gc,date_clusters=gd,

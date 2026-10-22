@@ -23,7 +23,7 @@ def main() -> None:
     parser.add_argument("--out", type=Path, required=True)
     args = parser.parse_args()
 
-    e = pd.read_csv(args.out / "tables/regional_events.csv")
+    e = pd.read_csv(args.out / "events/regional_events.csv")
     complete = e.cg_coverage_fraction == 1
     print(f"total land regional events       : {len(e)}")
     print(f"  complete CG coverage           : {int(complete.sum())}")

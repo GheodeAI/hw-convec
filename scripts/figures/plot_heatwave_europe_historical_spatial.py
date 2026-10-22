@@ -20,10 +20,10 @@ PROJECT_DIR = FsPath(__file__).resolve().parents[2]
 if str(PROJECT_DIR) not in sys.path:
     sys.path.insert(0, str(PROJECT_DIR))
 
-from common.paths import COUNTRIES_SHAPEFILE, HEATWAVE_FIGURES_DIR, WETBULB_HEATWAVES_DIR
+from common.figures import save_figure
+from common.paths import COUNTRIES_SHAPEFILE, WETBULB_HEATWAVES_DIR
 
 DEFAULT_PROCESSED_DIR = str(WETBULB_HEATWAVES_DIR)
-DEFAULT_FIG_DIR = str(HEATWAVE_FIGURES_DIR / "historical_spatial")
 TEN_M_COUNTRIES_SHAPEFILE = (
     PROJECT_DIR
     / "data"
@@ -32,7 +32,6 @@ TEN_M_COUNTRIES_SHAPEFILE = (
     / "ne_10m_admin_0_countries.shp"
 )
 DEFAULT_SHAPEFILE = str(TEN_M_COUNTRIES_SHAPEFILE if TEN_M_COUNTRIES_SHAPEFILE.exists() else COUNTRIES_SHAPEFILE)
-from common.config import MANUSCRIPT_FIGURES_DIR
 from common.style import FULL_WIDTH, apply_style, label_panels
 
 apply_style()
@@ -82,9 +81,8 @@ def parse_args():
         default=None,
         help="Override heatwave input directory. If omitted, it is inferred from --threshold.",
     )
-    parser.add_argument("--fig-dir", default=DEFAULT_FIG_DIR)
     parser.add_argument("--shapefile", default=DEFAULT_SHAPEFILE)
-    # Default to the paper's actual study region (Summary all.md Section 2),
+    # Default to the paper's study region (36-72N, 10W-33E),
     # not the full, wider ERA5 download extent -- pass --lat-min/-max/lon-min/-max
     # explicitly to override.
     parser.add_argument("--lat-min", type=float, default=36.0)
@@ -425,13 +423,11 @@ def plot_stats(stats, args, shapefile=None):
         cbar.set_label(colorbar_label(title))
     label_panels(fig, np.atleast_1d(axes).flat, "abc")
 
-    output = os.path.join(args.fig_dir, f"wetbulb_heatwave_historical_spatial_{figure_suffix(args)}.png")
-    fig.savefig(output, dpi=600, bbox_inches="tight")
+
     if args.threshold == "90p+20" and args.season_start_month == 4 and args.season_end_month == 9:
-        MANUSCRIPT_FIGURES_DIR.mkdir(parents=True, exist_ok=True)
-        fig.savefig(MANUSCRIPT_FIGURES_DIR / "18_wetbulb_heatwave_historical_spatial.png", dpi=600, bbox_inches="tight")
+
+        save_figure(fig, 'wetbulb_heatwave_historical_spatial', dpi=600, bbox_inches="tight")
     plt.close(fig)
-    print(f"Saved {output}")
 
 
 def main():
@@ -439,7 +435,6 @@ def main():
     if args.end_year < args.start_year:
         raise ValueError("--end-year must be greater than or equal to --start-year")
 
-    os.makedirs(args.fig_dir, exist_ok=True)
     input_dir = input_dir_from_threshold(args)
     files = year_files(input_dir, args.start_year, args.end_year)
     needed = [

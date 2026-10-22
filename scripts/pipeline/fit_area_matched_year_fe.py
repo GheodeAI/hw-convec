@@ -7,19 +7,13 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 from scipy import stats
-import matplotlib
-matplotlib.use('Agg')
-import matplotlib.pyplot as plt
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-from common.environment import ORDER, LABELS, UNITS
+from common.environment import ORDER
 from common.io import dump
 from common.matching import COV, match
 from common.stats import bh, fit_difference
-from common.style import BLUE, ORANGE, apply_style
 
-# Importing the figure script used to apply the journal style as a side effect.
-apply_style()
 
 def selection(c,kept,out):
     r=c.loc[kept];x=c.loc[~c.index.isin(kept)]
@@ -30,7 +24,7 @@ def selection(c,kept,out):
                          retained_median=r[v].median(),excluded_median=x[v].median(),
                          smd_retained_minus_excluded=(r[v].mean()-x[v].mean())/scale,
                          ks_distance=stats.ks_2samp(r[v],x[v]).statistic))
-    tab=pd.DataFrame(rows);tab.to_csv(out/'retained_vs_excluded_compound.csv',index=False)
+    tab=pd.DataFrame(rows);tab.to_csv(out/'tables/retained_vs_excluded_compound.csv',index=False)
     # Fixed geographic bands are descriptive, not administrative regions. The
     # outer edges span the EUCLID CG grid (lat 35-72, lon -11-33), not the
     # narrower study-region box: at low absolute thresholds some event centres
@@ -44,59 +38,43 @@ def selection(c,kept,out):
             bands.append(dict(coordinate=v,lower=lo,upper=hi,retained_n=nr,excluded_n=nx,
                               retained_group_fraction=nr/len(r),excluded_group_fraction=nx/len(x),
                               retention_within_band=nr/(nr+nx) if nr+nx else np.nan))
-    pd.DataFrame(bands).to_csv(out/'retention_geographic_bands.csv',index=False)
-    fig,axs=plt.subplots(2,3,figsize=(14,8));hist=[]
-    for g in [r,x]:
-        h,xe,ye=np.histogram2d(g.center_longitude,g.center_latitude,bins=[np.arange(-10,40.01,2.5),np.arange(36,72.01,2)])
-        hist.append(h.T/len(g)*100)
-    vmax=max(h.max() for h in hist)
-    for ax,h,title in zip(axs[0,:2],hist,[f'Retained compound (n={len(r)})',f'Excluded compound (n={len(x)})']):
-        mesh=ax.pcolormesh(xe,ye,h,cmap='Reds',vmin=0,vmax=vmax);ax.set(title=title,xlabel='Longitude (°E)',ylabel='Latitude (°N)')
-        fig.colorbar(mesh,ax=ax).set_label('Within-group events (%)')
-    lat=pd.DataFrame(bands).query('coordinate == "center_latitude"')
-    axs[0,2].bar(np.arange(3)-.2,lat.retained_group_fraction*100,width=.38,color=BLUE,label='Retained')
-    axs[0,2].bar(np.arange(3)+.2,lat.excluded_group_fraction*100,width=.38,color=ORANGE,label='Excluded')
-    axs[0,2].set_xticks(range(3),['35–45°N','45–55°N','55–72.5°N']);axs[0,2].set(title='Latitude composition',ylabel='Within-group events (%)');axs[0,2].legend(fontsize=9)
-    for ax,v,label in zip(axs[1],['intensity','log_max_daily_land_area','duration'],['Intensity (°C)','ln(peak daily land area / km²)','Duration (days)']):
-        for g,col,name in [(r,BLUE,'Retained'),(x,ORANGE,'Excluded')]:
-            a=np.sort(g[v]);ax.step(a,np.arange(1,len(a)+1)/len(a),c=col,label=name)
-        ax.set(xlabel=label,ylabel='Cumulative probability');ax.legend(fontsize=9);ax.grid(alpha=.2)
-    fig.suptitle('Selection among eligible compound events: retained versus excluded')
-    fig.tight_layout();fig.savefig(out/'retained_vs_excluded_compound.png',dpi=200);plt.close(fig)
+    pd.DataFrame(bands).to_csv(out/'tables/retention_geographic_bands.csv',index=False)
     return tab
 
 
 def run(source,out):
     out.mkdir(parents=True,exist_ok=False)
-    sources=[source/'tables/regional_events.csv',source/'matching_ablation_v1/area_only_pairs.csv',source/'tables/event_environment_anomaly.csv']
+    (out/'tables').mkdir()
+    (out/'data').mkdir()
+    sources=[source/'events/regional_events.csv',source/'matching/comparison/area_only_pairs.csv',source/'environment/tables/event_environment_anomaly.csv']
     hashes={str(p):hashlib.sha256(p.read_bytes()).hexdigest() for p in sources}
-    e=pd.read_csv(source/'area_year_diagnostics_v1/events_with_peak_daily_land_area.csv')
+    e=pd.read_csv(source/'matching/diagnostics/tables/events_with_peak_daily_land_area.csv')
     e=e[e.start_month.between(4,9)&(e.cg_coverage_fraction==1)].set_index('event_id')
     pairs,cov,covariance=match(e,'exact_month',base_cov=COV)
-    old=pd.read_csv(source/'matching_ablation_v1/area_only_pairs.csv')
+    old=pd.read_csv(source/'matching/comparison/area_only_pairs.csv')
     assert pairs[['compound_event_id','control_event_id']].equals(old[['compound_event_id','control_event_id']])
-    pairs.to_csv(out/'match_pairs.csv',index=False)
+    pairs.to_csv(out/'tables/match_pairs.csv',index=False)
     a=e.loc[pairs.compound_event_id];b=e.loc[pairs.control_event_id];c=e[e.has_lightning];n=e[~e.has_lightning]
     assert (a.start_month.values==b.start_month.values).all()
     rows=[]
     for v in COV+['max_daily_land_area_km2']:
         sd=np.sqrt((c[v].var()+n[v].var())/2)
         rows.append(dict(variable=v,smd_before=(c[v].mean()-n[v].mean())/sd,smd_after=(a[v].mean()-b[v].mean())/sd))
-    balance=pd.DataFrame(rows);balance.to_csv(out/'match_balance.csv',index=False)
+    balance=pd.DataFrame(rows);balance.to_csv(out/'tables/match_balance.csv',index=False)
     assert (balance.iloc[:5].smd_after.abs()<.1).all(), 'Five-variable balance check failed; stop before regression'
     print('Five-variable balance passed; pairs',len(pairs),flush=True)
     selected=selection(c,a.index,out)
     aa=a.reset_index();bb=b.reset_index();aa['compound']=1;bb['compound']=0
     aa['match_set_id']=pairs.match_set_id.values;bb['match_set_id']=pairs.match_set_id.values
-    env=pd.read_csv(source/'tables/event_environment_anomaly.csv').set_index('event_id')
+    env=pd.read_csv(source/'environment/tables/event_environment_anomaly.csv').set_index('event_id')
     long=pd.concat([aa,bb],ignore_index=True).merge(env[ORDER],left_on='event_id',right_index=True,validate='one_to_one')
-    long.to_csv(out/'matched_events_model_input.csv',index=False)
+    long.to_csv(out/'tables/matched_events_model_input.csv',index=False)
     year_rows=[]
     for year in range(2006,2026):
         pc=(c.year==year).mean();pn=(n.year==year).mean();denom=np.sqrt((pc*(1-pc)+pn*(1-pn))/2)
         year_rows.append(dict(year=year,compound_n=int((a.year==year).sum()),noncompound_n=int((b.year==year).sum()),
                               smd_after=((a.year==year).mean()-(b.year==year).mean())/denom))
-    yt=pd.DataFrame(year_rows);yt.to_csv(out/'matched_year_balance.csv',index=False)
+    yt=pd.DataFrame(year_rows);yt.to_csv(out/'tables/matched_year_balance.csv',index=False)
     y1=env.loc[a.index,ORDER].values;y0=env.loc[b.index,ORDER].values
     assert np.isfinite(y1).all() and np.isfinite(y0).all(), 'Missing environment values require variable-specific complete pairs'
     Y=y1-y0;years=np.arange(2007,2026)
@@ -123,21 +101,9 @@ def run(source,out):
                    cr1_correction=correction,ci_df=g-1))
         for k,term in enumerate(['compound']+[f'year_{yr}' for yr in years]):
             coefficients.append(dict(variable=v,term=term,coefficient=beta[k,j],cluster_se=np.sqrt(vcov[j,k,k])))
-    result=pd.DataFrame(results);result['p_bh']=bh(result.p);result.to_csv(out/'environment_pair_year_FE.csv',index=False)
-    pd.DataFrame(coefficients).to_csv(out/'all_year_FE_coefficients.csv',index=False)
-    np.savez_compressed(out/'regression_arrays.npz',design_difference=D,outcomes_difference=Y,coefficients=beta,cluster_covariances=vcov)
-    fig,axs=plt.subplots(2,3,figsize=(13,7))
-    for ax,r in zip(axs.flat,result.itertuples()):
-        ax.errorbar([0,1],[r.pair_FE_only_difference,r.difference],yerr=[[r.pair_FE_only_difference-r.pair_FE_only_ci95_lower,r.difference-r.ci95_lower],
-                     [r.pair_FE_only_ci95_upper-r.pair_FE_only_difference,r.ci95_upper-r.difference]],fmt='o',c=BLUE,capsize=4)
-        ax.set_xticks([0,1],['Pair FE','Pair + year FE']);ax.set_xlim(-.4,1.4);ax.set(title=LABELS[r.variable],ylabel=UNITS[r.variable]);ax.axhline(0,c='gray',lw=.8);ax.grid(axis='y',alpha=.2)
-    fig.suptitle(f'Compound − non-compound anomalies: {g} matched pairs\n95% CI with standard errors clustered by matched pair')
-    fig.tight_layout();fig.savefig(out/'environment_pair_year_FE_95CI.png',dpi=200);plt.close(fig)
-    fig,ax=plt.subplots(figsize=(9,5));yy=np.arange(5)
-    ax.scatter(balance.iloc[:5].smd_before.abs(),yy,label='Before',color=ORANGE)
-    ax.scatter(balance.iloc[:5].smd_after.abs(),yy,label='After',color=BLUE,marker='s')
-    ax.set_yticks(yy,['Latitude','Longitude','Duration','Intensity','log(peak daily land area)']);ax.invert_yaxis();ax.axvline(.1,c='gray',ls='--')
-    ax.set(xlabel='Absolute SMD',title='Exact start-month matching; five-variable Mahalanobis distance');ax.legend();fig.tight_layout();fig.savefig(out/'matching_balance.png',dpi=200);plt.close(fig)
+    result=pd.DataFrame(results);result['p_bh']=bh(result.p);result.to_csv(out/'tables/environment_pair_year_FE.csv',index=False)
+    pd.DataFrame(coefficients).to_csv(out/'tables/all_year_FE_coefficients.csv',index=False)
+    np.savez_compressed(out/'data/regression_arrays.npz',design_difference=D,outcomes_difference=Y,coefficients=beta,cluster_covariances=vcov)
     summary=dict(pairs=g,compound_eligible=len(c),compound_retained=g,compound_excluded=len(c)-g,retention=g/len(c),
         max_five_matching_abs_smd=float(balance.iloc[:5].smd_after.abs().max()),max_year_abs_smd_before_regression=float(yt.smd_after.abs().max()),
         model='environment = matched-pair FE + start-year FE + beta * compound',
@@ -149,19 +115,17 @@ def run(source,out):
     dump(out/'summary.json',summary)
     assert all(hashlib.sha256(p.read_bytes()).hexdigest()==hashes[str(p)] for p in sources)
     dump(out/'validation.json',dict(status='passed',original_inputs_sha256=hashes))
-    (out/'README.md').write_text('''# 月份精确匹配＋面积距离，匹配对和年份固定效应
+    (out/'README.md').write_text(f'''# Exact-month, area-aware matching with pair and start-year fixed effects
 
-沿用 area_only 的 837 对：开始月份精确匹配，纬度、经度、持续时间、强度、ln(最大单日陆地面积) 的 Mahalanobis 距离 ≤0.75，1:1 不放回，全局距离升序贪心。年份不用于匹配。匹配五变量的 SMD 检查在回归前执行，不是要求未匹配原始样本先平衡。
+{g} matched pairs from the area_only design: exact start month; Mahalanobis distance <= 0.75 on centre latitude, centre longitude, duration, intensity and ln(peak daily land area); 1:1 without replacement; global ascending-distance greedy assignment. Start year is not used in matching. The five-covariate SMD check runs before the regression.
 
-模型：Y_ij = alpha_pair + gamma_startyear + beta Compound_ij + error_ij。月份已在匹配对内相同，由匹配对 FE 吸收。2006 为年份参考；每个环境变量分别拟合。环境 Y 沿用事件陆地并集覆盖在事件期间的时间/网格均值异常，异常基准未更改。
+Model: Y_ij = alpha_pair + gamma_startyear + beta * Compound_ij + error_ij, fitted separately for each environmental variable. Start month is identical within pairs and absorbed by the pair effects; 2006 is the reference year. Y is the event-mean anomaly over the event's land footprint and duration.
 
-以复合减非复合差分精确吸收 pair FE，设计为截距＋19 个年份指示变量之差；截距即原模型的 beta。不是只给匹配对指定一个年份。已使用显式 2G 行、G 个 pair FE、复合指示和 19 个 year FE 的 OLS 独立验证系数与聚类标准误。
+The pair effects are removed exactly by taking compound minus non-compound differences; the design is an intercept plus 19 differenced year indicators, and the intercept equals beta. Coefficients and cluster standard errors are verified against the explicit 2G-row dummy-variable OLS.
 
-标准误为匹配对聚类 CR1，有限样本因子 G/(G−1) × (N−1)/(N−K)，其中 N=2G，K=G+20（包含 pair FE），95% CI 用 t(G−1)。采用完整哑变量模型的常规 CR1 口径；相比某些软件不计嵌套于聚类内的 pair FE 的校正，这一口径更保守。没有按年份或日期再聚类；单变量 CI 未做多重校正，另附六变量 BH p 值。Pair FE only 比较也采用同一完整模型 CR1 规则。
+Standard errors are CR1 clustered by matched pair, with factor G/(G-1) x (N-1)/(N-K), N = 2G, K = G + 20 (pair effects counted), and t(G-1) intervals. No further clustering by year or date. Per-variable intervals are unadjusted; BH-adjusted p values across the six variables are reported alongside.
 
-保留与剔除诊断仅针对原先合格的复合事件，不把非暖季或 CG 覆盖不全事件混入剔除组。方向是保留减剔除，用两组 pooled SD，并报告中位数、KS 距离和固定经纬度带。空间图为各组内部归一化比例，不是地区内保留率；地区内保留率另见 retention_geographic_bands.csv。
-
-年份回归调整不消除因匹配筛选产生的代表性差异，也不保证模型能推广到全部 1536 个复合事件。原事件、原匹配及既有图件均未覆盖。
+Retention diagnostics compare retained with excluded compound events among the {len(c)} eligible compound events only, using pooled SDs, medians, KS distances and fixed latitude/longitude bands (retention_geographic_bands.csv). Year adjustment does not remove selection differences introduced by matching.
 ''')
     print(json.dumps(summary,indent=2),flush=True)
     print(result[['variable','difference','cluster_se','ci95_lower','ci95_upper','p_bh']].to_string(index=False),flush=True)

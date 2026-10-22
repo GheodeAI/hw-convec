@@ -33,6 +33,10 @@ import pandas as pd
 from scipy import stats, ndimage
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from common.config import SHARED_CLIMATOLOGY_DIR
+from common.cache import register_climatology
+from common.layout import sensitivity_dir
+from common.analysis_inputs import input_path
 from common.config import YEARS
 from common.environment import load_fields, VARS, MATCHV
 from common.stats import bh, fit_difference
@@ -42,7 +46,7 @@ YEAR_DUMMIES = np.arange(2007, 2026)
 
 def event_windows(out: Path, pairs: pd.DataFrame) -> pd.DataFrame:
     """One row per event taking part in a pair, with its truncation time."""
-    e = pd.read_csv(out / "tables/regional_events.csv",
+    e = pd.read_csv(out / "events/regional_events.csv",
                     parse_dates=["start_time", "end_time", "first_cg_time"]).set_index("event_id")
     rows = []
     for pair in pairs.itertuples():
@@ -70,7 +74,7 @@ def truncated_footprints(out: Path, windows: pd.DataFrame) -> dict[int, np.ndarr
         subset = windows[windows.year == year]
         if subset.empty:
             continue
-        with np.load(out / f"data/labels_{year}.npz") as d:
+        with np.load(input_path(out, f"labels_{year}.npz")) as d:
             labels = d["labels"]
             offset = int(d["offset"])
         nx = labels.shape[2]
@@ -133,12 +137,12 @@ def extract(out: Path, windows: pd.DataFrame, footprints: dict[int, np.ndarray],
     return result
 
 
-def figure08_scale(out: Path) -> np.ndarray:
-    """The denominator behind figure 08: the pre-match pooled standard deviation
+def matched_environment_scale(out: Path) -> np.ndarray:
+    """The denominator of the main matched-environment result: the pre-match pooled standard deviation
     of the whole-event means over the full eligible sample. Fixed once here so
     the whole-event, 12 h and 24 h results are all expressed in the same units
     and differ only by the truncation."""
-    env = pd.read_csv(out / "tables/event_environment_anomaly.csv")
+    env = pd.read_csv(out / "environment/tables/event_environment_anomaly.csv")
     scales = []
     for v in MATCHV:
         compound = env.loc[env.has_lightning, v].dropna()
@@ -178,14 +182,15 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--pairs", type=Path, default=None,
-                        help="Defaults to <out>/matching_ablation_v1/area_only_pairs.csv")
-    parser.add_argument("--climatology-dir", type=Path, required=True)
+                        help="Defaults to <out>/matching/comparison/area_only_pairs.csv")
+    parser.add_argument("--climatology-dir", type=Path, default=SHARED_CLIMATOLOGY_DIR)
     parser.add_argument("--output", type=Path, default=None,
-                        help="Defaults to <out>/pre_cg_environment_v1")
+                        help="Defaults to outputs/sensitivity/pre_cg_environment for the primary run")
     args = parser.parse_args()
 
-    pairs_path = args.pairs or args.out / "matching_ablation_v1/area_only_pairs.csv"
-    output = args.output or args.out / "pre_cg_environment_v1"
+    register_climatology(args.climatology_dir)
+    pairs_path = args.pairs or args.out / "matching/comparison/area_only_pairs.csv"
+    output = args.output or sensitivity_dir(args.out) / "pre_cg_environment"
     output.mkdir(parents=True, exist_ok=True)
 
     pairs = pd.read_csv(pairs_path)
@@ -201,13 +206,13 @@ def main() -> None:
     values = extract(args.out, windows, footprints, args.climatology_dir)
     values.to_csv(output / "truncated_event_environment.csv", index=False)
 
-    full = pd.read_csv(args.out / "tables/event_environment_anomaly.csv").set_index("event_id")
+    full = pd.read_csv(args.out / "environment/tables/event_environment_anomaly.csv").set_index("event_id")
     full_values = windows[["match_set_id", "role", "event_id", "year"]].copy()
     for v in MATCHV:
         full_values[v] = full.loc[full_values.event_id, v].to_numpy()
 
-    scale = figure08_scale(args.out)
-    print("\nFixed standardisation denominator (figure 08 pooled SD): "
+    scale = matched_environment_scale(args.out)
+    print("\nFixed standardisation denominator (main matched-environment pooled SD): "
           + ", ".join(f"{v}={s:.6g}" for v, s in zip(MATCHV, scale)))
 
     tables, summary = [], []
@@ -231,7 +236,7 @@ def main() -> None:
         matching="unchanged; pairs reused from " + str(pairs_path),
         model="pair + start-year fixed effects on matched differences, CR1 pair-clustered, BH across six variables",
         standardisation="one fixed denominator per variable for every scheme: the pre-match pooled SD of the "
-                        "whole-event means over the full eligible sample, i.e. the denominator behind figure 08",
+                        "whole-event means over the full eligible sample, as in the main matched-environment result",
         climatology="cached 2006-2025 calendar-day/3-hour means, identical to the whole-event analysis"),
         indent=2) + "\n")
 

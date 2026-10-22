@@ -10,6 +10,7 @@ import pandas as pd
 from scipy import stats
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from common.layout import sensitivity_dir
 from common.config import RUN_DIR
 from common.environment import ORDER
 from common.matching import COV, match
@@ -21,8 +22,8 @@ LABELS = ['q850', 'TCWV', 'DPD2m', 'qv850', 'qu850', 'Z500']
 
 def run(source, output):
     output.mkdir(parents=True, exist_ok=True)
-    paths = [source / 'area_year_diagnostics_v1/events_with_peak_daily_land_area.csv',
-             source / 'tables/event_environment_anomaly.csv']
+    paths = [source / 'matching/diagnostics/tables/events_with_peak_daily_land_area.csv',
+             source / 'environment/tables/event_environment_anomaly.csv']
     hashes = {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in paths}
     events = pd.read_csv(paths[0]).set_index('event_id', verify_integrity=True)
     events = events[events.start_month.between(4, 9) & (events.cg_coverage_fraction == 1)].copy()
@@ -61,7 +62,7 @@ def run(source, output):
         result['cr1_correction'] = correction
         # Reproduce the existing primary classification whenever it matches.
         if np.array_equal(e.has_lightning, events.has_lightning):
-            reference = pd.read_csv(source / 'area_match_pair_year_FE_v1/environment_pair_year_FE.csv').set_index('variable').loc[ORDER]
+            reference = pd.read_csv(source / 'matching/final/tables/environment_pair_year_FE.csv').set_index('variable').loc[ORDER]
             assert np.allclose(result[['difference', 'cluster_se', 'p_bh']], reference[['difference', 'cluster_se', 'p_bh']], rtol=1e-8, atol=1e-12)
             print(f'{label}: reproduced existing primary results', flush=True)
         all_results.append(result)
@@ -91,6 +92,6 @@ def run(source, output):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--source', type=Path, default=DEFAULT_SOURCE)
-    parser.add_argument('--output', type=Path, default=DEFAULT_SOURCE / 'cg_fraction_sensitivity_v1')
+    parser.add_argument('--output', type=Path, default=None)
     args = parser.parse_args()
-    run(args.source, args.output)
+    run(args.source, args.output or sensitivity_dir(args.source) / 'cg_fraction_sensitivity')

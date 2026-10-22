@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 
@@ -5,23 +6,20 @@ PROJECT_DIR = Path(__file__).resolve().parents[1]
 DATA_DIR = PROJECT_DIR / "data"
 ERA5_DIR = DATA_DIR / "Era5"
 PROCESSED_DIR = PROJECT_DIR / "processed"
+ANALYSIS_INPUTS_DIR = Path(os.environ.get("ANALYSIS_INPUTS_ROOT", str(PROCESSED_DIR / "analysis_inputs")))
+if not ANALYSIS_INPUTS_DIR.is_absolute():
+    ANALYSIS_INPUTS_DIR = PROJECT_DIR / ANALYSIS_INPUTS_DIR
+SHARED_ANALYSIS_INPUTS_DIR = ANALYSIS_INPUTS_DIR / "shared"
 OUTPUTS_DIR = PROJECT_DIR / "outputs"
-# Intermediate figures/tables/data behind the supplementary figures; the main
-# run, sensitivity runs and manuscript set are in common/config.py.
+# Select the primary analysis once; supporting categories are independent of RUN.
+MAIN_ANALYSIS_DIR = Path(os.environ.get("RUN", str(OUTPUTS_DIR / "main_analysis")))
+if not MAIN_ANALYSIS_DIR.is_absolute():
+    MAIN_ANALYSIS_DIR = PROJECT_DIR / MAIN_ANALYSIS_DIR
+DENSITY_DIR = MAIN_ANALYSIS_DIR / "compound_density"
 SUPPORTING_DIR = OUTPUTS_DIR / "supporting"
-OUTPUT_DATA_DIR = SUPPORTING_DIR / "data"
-FIGURES_DIR = SUPPORTING_DIR / "figures"
-TABLES_DIR = SUPPORTING_DIR / "tables"
+CG_DIR = SUPPORTING_DIR / "cg"
+HEATWAVE_DIR = SUPPORTING_DIR / "heatwaves"
 
-HEATWAVE_FIGURES_DIR = FIGURES_DIR / "heatwaves"
-HEATWAVE_TABLES_DIR = TABLES_DIR / "heatwaves"
-COMPOUND_FIGURES_DIR = FIGURES_DIR / "compound"
-COMPOUND_TABLES_DIR = TABLES_DIR / "compound"
-COMPOUND_DATA_DIR = OUTPUT_DATA_DIR / "compound"
-COMPOUND_HEATWAVE_TABLES_DIR = COMPOUND_TABLES_DIR / "characteristics"
-COMPOUND_ENV_TABLES_DIR = COMPOUND_TABLES_DIR / "compound_noncompound_variables"
-COMPOUND_ENV_DATA_DIR = COMPOUND_DATA_DIR / "compound_noncompound_variables"
-COMPOUND_ENV_FIGURES_DIR = COMPOUND_FIGURES_DIR / "compound_noncompound_variables"
 SHAPEFILE_DIR = DATA_DIR / "shapefiles"
 COUNTRIES_10M_SHAPEFILE = (
     SHAPEFILE_DIR

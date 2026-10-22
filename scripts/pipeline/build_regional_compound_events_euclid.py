@@ -17,7 +17,7 @@ PROJECT_DIR = Path(__file__).resolve().parents[2]
 if str(PROJECT_DIR) not in sys.path:
     sys.path.insert(0, str(PROJECT_DIR))
 
-from common.paths import COMPOUND_EUCLID_DIR, COMPOUND_TABLES_DIR, DATA_DIR, WETBULB_HEATWAVES_DIR
+from common.paths import COMPOUND_EUCLID_DIR, MAIN_ANALYSIS_DIR, DATA_DIR, WETBULB_HEATWAVES_DIR
 from scripts.pipeline.build_gridcell_compound_events_euclid import load_euclid_lightning_events
 from common.heatwave_events import (
     connectivity_structure,
@@ -29,7 +29,7 @@ from common.heatwave_events import (
 
 DEFAULT_EUCLID_DIR = DATA_DIR / "Euclid" / "monthly_nc"
 DEFAULT_OUTPUT_DIR = COMPOUND_EUCLID_DIR
-DEFAULT_TABLES_DIR = COMPOUND_TABLES_DIR
+DEFAULT_TABLES_DIR = MAIN_ANALYSIS_DIR / "events"
 DEFAULT_METHODS = {
     "90p": WETBULB_HEATWAVES_DIR / "90p",
     "90p20": WETBULB_HEATWAVES_DIR / "90p20",

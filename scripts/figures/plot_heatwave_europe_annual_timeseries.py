@@ -19,13 +19,12 @@ PROJECT_DIR = FsPath(__file__).resolve().parents[2]
 if str(PROJECT_DIR) not in sys.path:
     sys.path.insert(0, str(PROJECT_DIR))
 
-from common.paths import COUNTRIES_SHAPEFILE, HEATWAVE_FIGURES_DIR, HEATWAVE_TABLES_DIR, WETBULB_HEATWAVES_DIR
+from common.figures import figure_path, save_figure
+from common.paths import COUNTRIES_SHAPEFILE, HEATWAVE_DIR, WETBULB_HEATWAVES_DIR
 
 DEFAULT_PROCESSED_DIR = str(WETBULB_HEATWAVES_DIR)
-DEFAULT_FIG_DIR = str(HEATWAVE_FIGURES_DIR / "timeseries")
-DEFAULT_TABLE_DIR = str(HEATWAVE_TABLES_DIR / "timeseries")
+DEFAULT_TABLE_DIR = str(HEATWAVE_DIR)
 DEFAULT_SHAPEFILE = str(COUNTRIES_SHAPEFILE)
-from common.config import MANUSCRIPT_FIGURES_DIR
 from common.style import BLUE, FULL_WIDTH, apply_style, label_panels
 
 apply_style()
@@ -67,7 +66,6 @@ def parse_args():
         default=None,
         help="Override heatwave input directory. If omitted, it is inferred from --threshold.",
     )
-    parser.add_argument("--fig-dir", default=DEFAULT_FIG_DIR, help="Directory for output figures.")
     parser.add_argument("--table-dir", default=DEFAULT_TABLE_DIR, help="Directory for output CSV tables.")
     parser.add_argument("--shapefile", default=DEFAULT_SHAPEFILE, help="Country boundary shapefile path.")
     parser.add_argument(
@@ -309,7 +307,7 @@ def plot_series_with_trend(ax, years, values, ylabel, color):
     ax.xaxis.set_major_locator(MaxNLocator(integer=True))
 
 
-def plot_annual_stats(df, threshold, fig_dir, domain_tag="europe"):
+def plot_annual_stats(df, threshold, domain_tag="europe"):
     fig, axes = plt.subplots(1, 2, figsize=(FULL_WIDTH, 2.8), constrained_layout=True, sharex=True)
     panels = [
         ("mean_heatwave_days", "Days yr$^{-1}$", BLUE),
@@ -326,18 +324,11 @@ def plot_annual_stats(df, threshold, fig_dir, domain_tag="europe"):
         ax.set_xlabel("Year")
     label_panels(fig, np.atleast_1d(axes).flat, "ab")
 
-    output = os.path.join(
-        fig_dir,
-        f"wetbulb_heatwave_{domain_tag}_annual_timeseries_AprSep_{threshold.replace('+', 'plus')}.png",
-    )
-    fig.savefig(output, dpi=1200, bbox_inches="tight")
     if domain_tag == "cg_domain" and threshold == "90p+20":
-        MANUSCRIPT_FIGURES_DIR.mkdir(parents=True, exist_ok=True)
-        fig.savefig(MANUSCRIPT_FIGURES_DIR / "19_wetbulb_heatwave_cg_domain_annual_timeseries.png", dpi=1200,
-                    bbox_inches="tight")
+
+        save_figure(fig, 'wetbulb_heatwave_cg_domain_annual_timeseries', dpi=1200, bbox_inches="tight")
     plt.close(fig)
-    print(f"Saved {output}")
-    return output
+    return figure_path('wetbulb_heatwave_cg_domain_annual_timeseries')
 
 
 def main():
@@ -345,7 +336,6 @@ def main():
     if args.end_year < args.start_year:
         raise ValueError("--end-year must be greater than or equal to --start-year")
 
-    os.makedirs(args.fig_dir, exist_ok=True)
     if not args.no_csv:
         os.makedirs(args.table_dir, exist_ok=True)
     input_dir = input_dir_from_threshold(args)
@@ -376,7 +366,7 @@ def main():
         df.to_csv(csv_output, float_format="%.4f")
         print(f"Saved {csv_output}")
 
-    plot_annual_stats(df, args.threshold, args.fig_dir, domain_tag=domain_tag)
+    plot_annual_stats(df, args.threshold, domain_tag=domain_tag)
 
 
 if __name__ == "__main__":

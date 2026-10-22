@@ -3,19 +3,20 @@
 #
 #   bash scripts/run_all.sh data         # ERA5 3-hourly, wet-bulb thresholds/heatwaves, EUCLID NetCDF, event catalogues
 #   bash scripts/run_all.sh main         # land-only regional events, FE models, matching, environment (into $RUN)
-#   bash scripts/run_all.sh figures      # all main and supplementary figures from $RUN
-#   bash scripts/run_all.sh sensitivity  # absolute-threshold sweeps, CG-fraction rule, CG window (Fig S7, S8, S14)
+#   bash scripts/run_all.sh figures      # 19 paper figures in assigned analysis directories; sensitivity makes the other 4
+#   bash scripts/run_all.sh sensitivity  # absolute-threshold sweeps, CG-fraction rule, CG window (Fig S7, S8, S14, S15)
 #   bash scripts/run_all.sh numbers      # manuscript statistics; Tables S1, S2 as CSV
 #   bash scripts/run_all.sh all
 #
-# Several steps refuse to overwrite an existing output directory, so a full
-# rerun should go to a fresh RUN, e.g.  RUN=outputs/run_90p20_rerun bash scripts/run_all.sh main
+# main and sensitivity resume completed stages by default. Pass --force to
+# archive their previous results and rerun; --dry-run previews commands.
+# A custom RUN keeps a separate primary analysis, e.g. RUN=outputs/main_analysis_rerun.
 # Run inside the conda environment from environment.yml.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-RUN=${RUN:-outputs/run_90p20}
-CLIM=${CLIM:-outputs/sensitivity/threshold_sweep/shared_climatology}
+export RUN=${RUN:-outputs/main_analysis}
+CLIM=${CLIM:-processed/climatology}
 P=scripts/pipeline
 F=scripts/figures
 S=scripts/sensitivity
@@ -45,22 +46,11 @@ data() {
 }
 
 main() {
-    py $P/rebuild_compound_land.py rebuild --out "$RUN" --method 90p20
-    py $P/rebuild_compound_land.py coverage --out "$RUN"
-    py $P/rebuild_compound_land.py probability --out "$RUN"
-    py $P/rebuild_compound_land.py match --out "$RUN"
-    py $P/check_land_area_year_balance.py --source "$RUN" --output "$RUN/area_year_diagnostics_v1"
-    py $P/prepare_confirmed_land.py --out "$RUN" --method 90p20
-    py $P/analyze_land_environment.py --out "$RUN" --climatology-dir "$CLIM"
-    py $P/fit_land_intensity.py --out "$RUN"
-    py $P/fit_cg_heatwave_fixed_effects.py --output-dir "$RUN/tables/warmseason_fe"
-    py $P/report_warmseason_fe_margins.py --source "$RUN"
-    py $P/compare_land_matching_ablation.py --source "$RUN" --output "$RUN/matching_ablation_v1"
-    py $P/fit_area_matched_year_fe.py --source "$RUN" --output "$RUN/area_match_pair_year_FE_v1"
-    py $P/compute_pre_cg_environment.py --out "$RUN" --climatology-dir "$CLIM"
+    py $P/run_analysis.py main --run "$RUN" --climatology-dir "$CLIM" "$@"
 }
 
 figures() {
+    mkdir -p outputs/supporting/{cg,heatwaves}
     py $F/plot_confirmed_land.py --out "$RUN"                     # Fig 1, 3, 4, S6, S10-S13 (+ timing data for S16)
     py $F/plot_standalone_heatwave_probability.py --source "$RUN" # Fig 2
     py $F/analyze_first_cg_peak_intensity_timing.py --out "$RUN"  # Fig 5
@@ -70,18 +60,12 @@ figures() {
     py $F/plot_cg_spatial_stats.py                                # Fig S3, S4
     py $F/plot_compound_event_location_density.py --sources euclid_cg  # Fig S5
     py $F/compare_wetbulb_methods.py                              # Fig S9
-    py $F/plot_pre_cg_environment.py --out "$RUN"                 # Fig S15
     py $F/plot_gridcell_first_cg_lifecycle.py --out "$RUN"        # Fig S16
-    py $F/collect_manuscript_figures.py --source "$RUN/figures"   # -> outputs/manuscript/figures/Fig*.png
+    py $F/check_figures.py --group figures          # validate all assigned figure locations
 }
 
 sensitivity() {
-    py $S/run_absolute_threshold_sweep.py
-    py $S/run_environment_sensitivity_sweep.py
-    py $S/run_land_cg_fraction_sensitivity.py --source "$RUN" --output "$RUN/cg_fraction_sensitivity_v1"  # Table S2
-    py $S/run_cg_window_sensitivity.py                            # compound defined without the 24 h after
-    py $F/plot_threshold_sensitivity.py                           # Fig S7, S8
-    py $F/plot_environment_threshold_sensitivity.py               # Fig S14
+    py $P/run_analysis.py sensitivity --run "$RUN" --climatology-dir "$CLIM" "$@"
 }
 
 numbers() {
@@ -92,7 +76,8 @@ numbers() {
 }
 
 case "${1:-}" in
-    data|main|figures|sensitivity|numbers) "$1" ;;
-    all) data; main; figures; sensitivity; numbers ;;
+    main|sensitivity) stage=$1; shift; "$stage" "$@" ;;
+    data|figures|numbers) "$1" ;;
+    all) data; main; figures; sensitivity; numbers; py $F/check_figures.py ;;
     *) sed -n '2,13p' "$0"; exit 1 ;;
 esac

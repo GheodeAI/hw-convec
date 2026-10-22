@@ -29,7 +29,7 @@ def main() -> None:
     parser.add_argument("--out", type=Path, required=True)
     args = parser.parse_args()
 
-    e = pd.read_csv(args.out / "tables/regional_events.csv",
+    e = pd.read_csv(args.out / "events/regional_events.csv",
                     parse_dates=["first_cg_time", "start_time"])
     covered = e[e.has_lightning & (e.cg_coverage_fraction == 1)].copy()
     covered["lag_hours"] = (covered.first_cg_time - covered.start_time).dt.total_seconds() / 3600

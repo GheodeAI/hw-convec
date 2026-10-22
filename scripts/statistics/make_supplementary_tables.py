@@ -19,6 +19,8 @@ import numpy as np
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from common.layout import sensitivity_dir
+from common.analysis_inputs import input_path
 from common.config import RUN_DIR, YEARS
 from common.environment import ORDER
 from common.paths import OUTPUTS_DIR
@@ -33,7 +35,7 @@ def quintile_exclusions() -> tuple[int, int, int]:
     excess whose assigned ERA5 cell is not in a land regional event."""
     total = gap = off_land = 0
     for year in YEARS:
-        with np.load(RUN_DIR / f'data/daily_{year}.npz') as d:
+        with np.load(input_path(RUN_DIR, f'daily_{year}.npz')) as d:
             month = pd.DatetimeIndex(d['dates']).month
             warm = (month >= 4) & (month <= 9)
             hw = d['hw'][warm].astype(bool)
@@ -45,8 +47,8 @@ def quintile_exclusions() -> tuple[int, int, int]:
 
 
 def retention_table() -> pd.DataFrame:
-    a = pd.read_csv(RUN_DIR / 'tables/warmseason_fe/cg_hw_fe_logit_90p20_2006-2025_m04-09_attrition.csv').set_index('stage')
-    q = json.loads((RUN_DIR / 'tables/quintile_diagnostics.json').read_text())
+    a = pd.read_csv(RUN_DIR / 'occurrence/tables/cg_hw_fe_logit_90p20_2006-2025_m04-09_attrition.csv').set_index('stage')
+    q = json.loads((RUN_DIR / 'intensity/tables/quintile_diagnostics.json').read_text())
     initial, exposure, outcome = (a.loc[s] for s in
                                   ['initial_land_cell_month_sample', 'exposure_informative', 'outcome_informative_final'])
     hw_days = int(initial.heatwave_records_before)
@@ -73,8 +75,8 @@ def retention_table() -> pd.DataFrame:
 
 
 def compound_definition_table() -> pd.DataFrame:
-    fractions = pd.read_csv(RUN_DIR / 'cg_fraction_sensitivity_v1/environment_comparison.csv')
-    window = pd.read_csv(RUN_DIR / 'cg_window_sensitivity/environment_pair_year_FE_by_cg_window.csv')
+    fractions = pd.read_csv(sensitivity_dir(RUN_DIR) / 'cg_fraction_sensitivity/environment_comparison.csv')
+    window = pd.read_csv(sensitivity_dir(RUN_DIR) / 'cg_window_sensitivity/environment_pair_year_FE_by_cg_window.csv')
     rules = [('Any CG versus no CG', 'event + 24 h after', fractions[fractions.threshold == 0]),
              ('>=10% versus <10%', 'event + 24 h after', fractions[fractions.threshold == .1]),
              ('>=20% versus <20%', 'event + 24 h after', fractions[fractions.threshold == .2]),

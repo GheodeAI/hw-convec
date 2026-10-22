@@ -18,20 +18,20 @@ from scipy import stats
 PROJECT_DIR = Path(__file__).resolve().parents[2]
 if str(PROJECT_DIR) not in sys.path:
     sys.path.insert(0, str(PROJECT_DIR))
-from common.paths import COMPOUND_DATA_DIR, HEATWAVE_TABLES_DIR
+from common.paths import CG_DIR, HEATWAVE_DIR
 
 SERIES = [
     ("Heatwave days per year (S2a)",
-     HEATWAVE_TABLES_DIR / "timeseries/wetbulb_heatwave_cg_domain_annual_timeseries_AprSep_90pplus20.csv",
+     HEATWAVE_DIR / "wetbulb_heatwave_cg_domain_annual_timeseries_AprSep_90pplus20.csv",
      "year", "mean_heatwave_days"),
     ("Heatwave intensity (S2b)",
-     HEATWAVE_TABLES_DIR / "timeseries/wetbulb_heatwave_cg_domain_annual_timeseries_AprSep_90pplus20.csv",
+     HEATWAVE_DIR / "wetbulb_heatwave_cg_domain_annual_timeseries_AprSep_90pplus20.csv",
      "year", "mean_heatwave_intensity"),
     ("CG days per year (S4a)",
-     COMPOUND_DATA_DIR / "cg_spatial_stats/euclid_cg_annual_2006-2025.csv",
+     CG_DIR / "euclid_cg_annual_2006-2025.csv",
      "year", "mean_cg_days"),
     ("CG-day flash intensity (S4b)",
-     COMPOUND_DATA_DIR / "cg_spatial_stats/euclid_cg_annual_2006-2025.csv",
+     CG_DIR / "euclid_cg_annual_2006-2025.csv",
      "year", "mean_cg_day_flash_intensity"),
 ]
 

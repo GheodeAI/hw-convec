@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""Figure 23: timing of the grid-cell first CG within the local heatwave spell.
+"""Timing of the grid-cell first CG within the local heatwave spell.
 
 a  lifecycle phase = hours from local onset / (24 x local duration). Values
    above one fall in the 24 h after the local spell ends; because that window
    is a different fraction of each spell, it is drawn as a separate shaded
    segment measured in hours after the end rather than stretched in phase.
 b  lag from local onset to first CG, in days.
-Same population as the compound composites (data/confirmed_compound_timing.parquet).
+Same population as the compound composites (first_cg/data/confirmed_compound_timing.parquet).
 """
 from __future__ import annotations
 import argparse
@@ -19,6 +19,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from common.figures import figure_path, save_figure
 from common.style import BLUE, FULL_WIDTH, apply_style, label_panels
 
 apply_style()
@@ -29,7 +30,7 @@ POST_BINS = 8             # 3 h each
 
 
 def plot(out: Path) -> None:
-    t = pd.read_parquet(out / "data/confirmed_compound_timing.parquet")
+    t = pd.read_parquet(out / "first_cg/data/confirmed_compound_timing.parquet")
     phase = (t.lag_hours / (24 * t.duration)).to_numpy()
     hours_after_end = (t.lag_hours - 24 * t.duration).to_numpy()
     n = len(t)
@@ -68,8 +69,8 @@ def plot(out: Path) -> None:
 
     fig.tight_layout(h_pad=1.6)
     label_panels(fig, [ax_a, ax_b], "ab", align=True)
-    target = out / "figures/23_gridcell_first_cg_lifecycle.png"
-    fig.savefig(target, dpi=1200, bbox_inches="tight")
+    target = figure_path('gridcell_first_cg_lifecycle', out)
+    save_figure(fig, 'gridcell_first_cg_lifecycle', run_dir=out, dpi=1200, bbox_inches="tight")
     plt.close(fig)
     print(f"n = {n}, median phase = {np.median(phase):.3f}, median lag = {np.median(lag_days):.2f} days, "
           f"post-event share = {post.mean()*100:.1f}%, lag axis cut at p99 = {upper:.0f} days "

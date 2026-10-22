@@ -1,7 +1,6 @@
 """Fig 2: CG occurrence probability on heatwave and non-heatwave days, unadjusted
 and fixed-effects adjusted."""
 import argparse
-import hashlib
 from pathlib import Path
 import numpy as np
 import pandas as pd
@@ -12,6 +11,7 @@ from matplotlib.transforms import blended_transform_factory
 import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from common.figures import figure_path, save_figure
 from common.style import BLUE, ORANGE, MID_WIDTH, apply_style
 
 apply_style()
@@ -20,11 +20,9 @@ SAMPLES = ['All land days', 'FE-informative\nsample', 'FE-informative\nsample']
 
 
 def plot(source):
-    report=source/'warmseason_fe_report_v1'
-    originals=[source/'figures/03_intensity_FE.png',report/'CG_probability_comparison.png']
-    hashes=[hashlib.sha256(p.read_bytes()).hexdigest() for p in originals]
-    raw=pd.read_csv(report/'unadjusted_probabilities.csv')
-    effects=pd.read_csv(report/'adjusted_effects_95CI.csv').set_index('metric')
+    report=source/'occurrence'
+    raw=pd.read_csv(report/'tables/unadjusted_probabilities.csv')
+    effects=pd.read_csv(report/'tables/adjusted_effects_95CI.csv').set_index('metric')
     values=np.column_stack([raw[raw.result==name].sort_values('heatwave').probability.to_numpy()
                             for name in raw.result.unique()]+[effects.loc[['p_nonheatwave','p_heatwave'],'estimate'].to_numpy()])*100
     ratio=values[1]/values[0]
@@ -57,9 +55,8 @@ def plot(source):
         ax.plot([x0,x0,x1,x1],[y+.02,y,y,y+.02],transform=tr,c='black',lw=.7,clip_on=False)
         ax.text((x0+x1)/2,y-.02,label,transform=tr,ha='center',va='top',fontsize=9)
 
-    target=source/'figures/13_probability.png'
-    fig.savefig(target,dpi=1200,bbox_inches='tight');plt.close(fig)
-    assert hashes==[hashlib.sha256(p.read_bytes()).hexdigest() for p in originals]
+    target=figure_path('probability', source)
+    save_figure(fig, 'probability', run_dir=source, dpi=1200, bbox_inches='tight');plt.close(fig)
     print(f'HW/non-HW ratio: {ratio[0]:.3f} (all land days), {ratio[1]:.3f} (FE-informative), '
           f'{ratio[2]:.3f} [{rr.ci95_lower:.3f}, {rr.ci95_upper:.3f}] (adjusted)')
     print(target)

@@ -3,6 +3,7 @@ data/
 processed/
 outputs/
 archive/
+logs/
 
 # Superseded and development-only scripts stay on disk but are not published.
 scripts/archive/

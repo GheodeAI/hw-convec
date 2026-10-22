@@ -1,16 +1,10 @@
 #!/usr/bin/env python3
-"""Recompute the first-CG environmental-evolution curves (09_first_CG_compound
-/ 10_compound_vs_nonHW_CG_onsets) with cluster-robust uncertainty, per Jurg and
-Elena's suggestion: "estimating the uncertainty by clustering or resampling at
-the regional-event level, rather than treating the individual grid-cell events
-as independent. The same approach would strengthen the comparison between CG
-events during and outside heatwaves."
+"""First-CG environmental-evolution curves with cluster-robust uncertainty:
+composites for compound-event first CGs and non-heatwave CG onsets, and their
+difference.
 
-The original plot_confirmed_land.py:curves() treats every grid-cell first-CG
-"id" as an independent observation for both the SEM/IQR summary and the
-adjacent-3h-change significance test (stats.sem / stats.ttest_1samp on the raw
-rows) -- but many grid-cell first-CG occurrences belong to the same regional
-heatwave event, so they are spatially/temporally correlated, not independent.
+Grid-cell first CGs belonging to the same regional heatwave are correlated, so
+uncertainty is estimated by resampling clusters rather than individual onsets.
 
 Cluster definition:
   - kind == 'compound'    -> cluster on event_id (the parent regional event;
@@ -23,11 +17,7 @@ Cluster definition:
 Method: cluster bootstrap (resample clusters with replacement, pool all rows
 from the resampled clusters, 1000 replicates) for both the per-hour mean CI
 and the adjacent-hour change CI/p-value, then BH-correct across the 9 adjacent
-comparisons per (kind, variable) exactly as before.
-
-Writes NEW files alongside the originals -- confirmed_curve_summary.csv and
-confirmed_adjacent_changes.csv, and figures 09/10, are left untouched so the
-two versions can be compared directly.
+comparisons per (kind, variable).
 """
 from __future__ import annotations
 import argparse
@@ -41,6 +31,8 @@ import matplotlib.pyplot as plt
 import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from common.first_cg import read_first_cg_values
+from common.figures import save_figure
 from common.stats import bh
 from common.style import BLUE, ORANGE, FULL_WIDTH, apply_style, label_panels
 
@@ -117,7 +109,7 @@ def cluster_column(kind: str) -> str:
 
 
 def compute_between_group(out: Path, rng: np.random.Generator) -> pd.DataFrame:
-    d = pd.read_parquet(out / "data/first_cg_event_values.parquet")
+    d = read_first_cg_values(out, columns=["kind", "id", "cell", "event_id", "relative_hour"] + [f"{v}_climatological_anomaly" for v in VARIABLES])
     rows = []
     for v in VARIABLES:
         col = f"{v}_climatological_anomaly"
@@ -139,7 +131,7 @@ def compute_between_group(out: Path, rng: np.random.Generator) -> pd.DataFrame:
 
 
 def compute(out: Path) -> tuple[pd.DataFrame, pd.DataFrame]:
-    d = pd.read_parquet(out / "data/first_cg_event_values.parquet")
+    d = read_first_cg_values(out, columns=["kind", "id", "cell", "event_id", "relative_hour"] + [f"{v}_climatological_anomaly" for v in VARIABLES])
     rng = np.random.default_rng(SEED)
     summary_rows, change_rows = [], []
     for kind in ["compound", "nonhw_onset"]:
@@ -172,47 +164,6 @@ def compute(out: Path) -> tuple[pd.DataFrame, pd.DataFrame]:
     return summary, changes
 
 
-def plot(out: Path, summary: pd.DataFrame, changes: pd.DataFrame) -> None:
-    fig, axs = plt.subplots(2, 2, figsize=(12.1, 7.15))
-    for ax, v in zip(axs.flat, VARIABLES):
-        a = summary[(summary.kind == "compound") & (summary.variable == v)].sort_values("hour")
-        ax.fill_between(a.hour, a.q25, a.q75, color="#a5d0e5", alpha=.6, label="IQR")
-        ax.fill_between(a.hour, a.ci95_lower, a.ci95_upper, color=BLUE, alpha=.25, linewidth=0,
-                         label="95% event-cluster bootstrap CI of the mean")
-        ax.plot(a.hour, a["mean"], "o-", c=BLUE, lw=2, label="Mean")
-        ax.plot(a.hour, a["median"], "--", c="grey", label="Median")
-        sig = changes[(changes.kind == "compound") & (changes.variable == v) & (changes.p_bh < .05)].hour
-        ss = a.set_index("hour").loc[sig]
-        ax.scatter(ss.index, ss["mean"], marker="*", s=90, c="#a62a55", zorder=5,
-                   label="Adjacent change: BH q < 0.05 (event-cluster bootstrap)")
-        ax.axvline(0, c="black", lw=.7); ax.axhline(0, c="black", lw=.7)
-        ax.set(title=LABELS[v], xlabel="Hours from first CG (nearest 3-hour reference)", ylabel=UNITS[v])
-        ax.set_xticks(range(-12, 13, 3)); ax.grid(alpha=.2)
-    axs[0, 0].legend(ncol=1, fontsize=8)
-    fig.suptitle("Land grid-cell first CG within qualifying regional compound events: anomalies\n"
-                 "(event-cluster bootstrap uncertainty, not per grid-cell-event)")
-    fig.tight_layout()
-    fig.savefig(out / "figures/09_first_CG_compound_event_cluster.png", dpi=200, bbox_inches="tight")
-    plt.close(fig)
-
-    fig, axs = plt.subplots(2, 2, figsize=(12.1, 7.15))
-    for ax, v in zip(axs.flat, VARIABLES):
-        for kind, col, label in [("compound", BLUE, "compound-event first CG"),
-                                  ("nonhw_onset", ORANGE, "non-heatwave CG onset")]:
-            a = summary[(summary.kind == kind) & (summary.variable == v)].sort_values("hour")
-            ax.fill_between(a.hour, a.ci95_lower, a.ci95_upper, color=col, alpha=.2, linewidth=0)
-            ax.plot(a.hour, a["mean"], "o-", c=col, lw=2, label=label)
-        ax.axvline(0, c="black", lw=.7); ax.axhline(0, c="black", lw=.7)
-        ax.set(title=LABELS[v], xlabel="Hours from CG reference (nearest 3-hour slot)", ylabel=UNITS[v])
-        ax.set_xticks(range(-12, 13, 3)); ax.grid(alpha=.2)
-    axs[0, 0].legend(fontsize=9)
-    fig.suptitle("Land compound first CG vs non-heatwave CG onsets: Apr-Sep centres, 2006-2025\n"
-                 "(shaded = 95% cluster bootstrap CI: event-level for compound, cell-level for non-heatwave onsets)")
-    fig.tight_layout()
-    fig.savefig(out / "figures/10_compound_vs_nonHW_CG_onsets_event_cluster.png", dpi=200, bbox_inches="tight")
-    plt.close(fig)
-
-
 def plot_merged(out: Path, summary: pd.DataFrame, changes: pd.DataFrame) -> None:
     """09+10 combined: one panel per variable, compound (full detail: IQR, CI,
     significance stars) overlaid with the non-heatwave onset comparison (CI
@@ -241,7 +192,7 @@ def plot_merged(out: Path, summary: pd.DataFrame, changes: pd.DataFrame) -> None
     fig.supxlabel("Hours from CG reference (nearest 3-hour slot)", fontsize=plt.rcParams["axes.labelsize"])
     fig.tight_layout(h_pad=1.6)
     label_panels(fig, axs.flat, "abcd")
-    fig.savefig(out / "figures/09_10_first_CG_merged_event_cluster.png", dpi=1200, bbox_inches="tight")
+    save_figure(fig, 'first_CG_merged_event_cluster', run_dir=out, dpi=1200, bbox_inches="tight")
     plt.close(fig)
 
 
@@ -263,14 +214,14 @@ def plot_between_group(out: Path, between_group: pd.DataFrame) -> None:
     fig.supxlabel("Hours from CG reference (nearest 3-hour slot)", fontsize=plt.rcParams["axes.labelsize"])
     fig.tight_layout(h_pad=1.6)
     label_panels(fig, axs.flat, "abcd")
-    fig.savefig(out / "figures/first_CG_compound_vs_nonHW_difference_event_cluster.png", dpi=1200, bbox_inches="tight")
+    save_figure(fig, 'first_CG_compound_vs_nonHW_difference_event_cluster', run_dir=out, dpi=1200, bbox_inches="tight")
     plt.close(fig)
 
 
 def run(out: Path, force: bool = False) -> None:
-    summary_path = out / "tables/confirmed_curve_summary_event_cluster.csv"
-    changes_path = out / "tables/confirmed_adjacent_changes_event_cluster.csv"
-    between_path = out / "tables/first_cg_compound_vs_nonHW_difference.csv"
+    summary_path = out / "first_cg/tables/confirmed_curve_summary_event_cluster.csv"
+    changes_path = out / "first_cg/tables/confirmed_adjacent_changes_event_cluster.csv"
+    between_path = out / "first_cg/tables/first_cg_compound_vs_nonHW_difference.csv"
     rng = np.random.default_rng(SEED)
     if not force and summary_path.exists() and changes_path.exists():
         # The 1000x cluster bootstrap is the expensive part; replotting alone
@@ -289,16 +240,11 @@ def run(out: Path, force: bool = False) -> None:
     else:
         between_group = compute_between_group(out, rng)
         between_group.to_csv(between_path, index=False)
-    plot(out, summary, changes)
     plot_merged(out, summary, changes)
     plot_between_group(out, between_group)
     print(f"Wrote {summary_path}")
     print(f"Wrote {changes_path}")
     print(f"Wrote {between_path}")
-    print(f"Wrote {out / 'figures/09_first_CG_compound_event_cluster.png'}")
-    print(f"Wrote {out / 'figures/10_compound_vs_nonHW_CG_onsets_event_cluster.png'}")
-    print(f"Wrote {out / 'figures/09_10_first_CG_merged_event_cluster.png'}")
-    print(f"Wrote {out / 'figures/first_CG_compound_vs_nonHW_difference_event_cluster.png'}")
 
 
 if __name__ == "__main__":

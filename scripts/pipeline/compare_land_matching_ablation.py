@@ -12,7 +12,7 @@ from common.matching import COV, match
 
 def run(source,output):
     output.mkdir(parents=True,exist_ok=False)
-    e=pd.read_csv(source/'area_year_diagnostics_v1/events_with_peak_daily_land_area.csv')
+    e=pd.read_csv(source/'matching/diagnostics/tables/events_with_peak_daily_land_area.csv')
     e=e[e.start_month.between(4,9)&(e.cg_coverage_fraction==1)].set_index('event_id')
     scenarios=[('baseline','exact_month',COV[:4]),('area_only','exact_month',COV),
                ('year_only','exact_year_month',COV[:4]),('area_and_year','exact_year_month',COV)]
@@ -28,8 +28,8 @@ def run(source,output):
         # provenance check that a fresh recompute reproduces the earlier cached
         # result); other absolute-threshold runs have no such baseline, so the
         # check is skipped rather than failing the whole comparison.
-        reference={'baseline':source/'tables/match_pairs.csv',
-                   'area_and_year':source/'rematch_year_area_v1/exact_year_month/match_pairs.csv'}.get(name)
+        reference={'baseline':source/'matching/baseline/match_pairs.csv',
+                   'area_and_year':source/'rematch_year_area/exact_year_month/match_pairs.csv'}.get(name)
         if reference is not None and reference.exists():
             old=pd.read_csv(reference)
             if pairs[['compound_event_id','control_event_id']].equals(old[['compound_event_id','control_event_id']]):

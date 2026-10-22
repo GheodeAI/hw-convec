@@ -23,8 +23,9 @@ PROJECT_DIR = Path(__file__).resolve().parents[2]
 if str(PROJECT_DIR) not in sys.path:
     sys.path.insert(0, str(PROJECT_DIR))
 
-from common.paths import COMPOUND_DATA_DIR, COMPOUND_FIGURES_DIR, COUNTRIES_SHAPEFILE
-from common.output import compact_stem, ensure_dir, figure_stem
+from common.figures import figure_path, save_figure
+from common.paths import CG_DIR, COUNTRIES_SHAPEFILE
+from common.output import compact_stem, ensure_dir
 
 
 DEFAULT_CG_DIR = PROJECT_DIR / "data" / "Euclid" / "monthly_nc_cg"
@@ -36,7 +37,6 @@ TEN_M_COUNTRIES_SHAPEFILE = (
     / "ne_10m_admin_0_countries.shp"
 )
 DEFAULT_SHAPEFILE = TEN_M_COUNTRIES_SHAPEFILE if TEN_M_COUNTRIES_SHAPEFILE.exists() else COUNTRIES_SHAPEFILE
-from common.config import MANUSCRIPT_FIGURES_DIR
 from common.style import BLUE, FULL_WIDTH, apply_style, label_panels
 
 apply_style()
@@ -60,8 +60,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--end-year", type=int, default=2025)
     parser.add_argument("--months", nargs="+", type=int, default=[4, 5, 6, 7, 8, 9])
     parser.add_argument("--cg-dir", default=str(DEFAULT_CG_DIR))
-    parser.add_argument("--figures-dir", default=str(COMPOUND_FIGURES_DIR / "cg_spatial_stats"))
-    parser.add_argument("--data-dir", default=str(COMPOUND_DATA_DIR / "cg_spatial_stats"))
+    parser.add_argument("--data-dir", default=str(CG_DIR))
+    parser.add_argument("--tables-dir", default=str(CG_DIR))
     parser.add_argument("--shapefile", default=str(DEFAULT_SHAPEFILE))
     parser.add_argument("--replot", action="store_true",
                         help="Redraw from the saved NetCDF/CSV instead of recomputing from the hourly CG files.")
@@ -392,9 +392,8 @@ def plot_stats(ds: xr.Dataset, output_path: Path, start_year: int, end_year: int
         cbar.set_label(label)
     label_panels(fig, axes, "abc")
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(output_path, dpi=600, bbox_inches="tight")
-    MANUSCRIPT_FIGURES_DIR.mkdir(parents=True, exist_ok=True)
-    fig.savefig(MANUSCRIPT_FIGURES_DIR / "17_euclid_cg_mean_days_intensity.png", dpi=600, bbox_inches="tight")
+
+    save_figure(fig, 'euclid_cg_mean_days_intensity', dpi=600, bbox_inches="tight")
     plt.close(fig)
 
 
@@ -431,10 +430,8 @@ def plot_annual_timeseries(df: pd.DataFrame, output_path: Path, start_year: int,
         ax.set_xlabel("Year")
     label_panels(fig, axes, "ab")
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(output_path, dpi=1200, facecolor="white", bbox_inches="tight")
-    MANUSCRIPT_FIGURES_DIR.mkdir(parents=True, exist_ok=True)
-    fig.savefig(MANUSCRIPT_FIGURES_DIR / "16_euclid_cg_annual_timeseries.png", dpi=1200, facecolor="white",
-                bbox_inches="tight")
+
+    save_figure(fig, 'euclid_cg_annual_timeseries', dpi=1200, facecolor="white", bbox_inches="tight")
     plt.close(fig)
 
 
@@ -446,11 +443,11 @@ def main() -> None:
     stem = compact_stem(f"euclid_cg_mean_days_intensity_{args.start_year}_{args.end_year}")
     annual_stem = compact_stem(f"euclid_cg_annual_timeseries_{args.start_year}_{args.end_year}")
     data_dir = ensure_dir(args.data_dir)
-    figures_dir = ensure_dir(args.figures_dir)
+    tables_dir = ensure_dir(args.tables_dir)
     nc_path = data_dir / f"{stem}.nc"
-    fig_path = figures_dir / f"{figure_stem(stem)}.png"
-    csv_path = data_dir / f"{annual_stem}.csv"
-    annual_fig_path = figures_dir / f"{figure_stem(annual_stem)}.png"
+    fig_path = figure_path('euclid_cg_mean_days_intensity')
+    csv_path = tables_dir / f"{annual_stem}.csv"
+    annual_fig_path = figure_path('euclid_cg_annual_timeseries')
     if args.replot:
         ds = xr.load_dataset(nc_path)
         annual = pd.read_csv(csv_path)

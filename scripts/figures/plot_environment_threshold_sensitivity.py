@@ -11,17 +11,17 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-from common.config import MANUSCRIPT_FIGURES_DIR, SWEEP_SUMMARY_DIR
-from common.environment import ORDER, LABELS, UNITS
+from common.figures import save_figure
+from common.config import SWEEP_SUMMARY_DIR
+from common.environment import ORDER
 from common.style import BLUE as COLOR, FULL_WIDTH, apply_style, label_panels
 
 apply_style()
 
 DEFAULT_SUMMARY = SWEEP_SUMMARY_DIR / "environment_threshold_sensitivity_2006_2025.csv"
-DEFAULT_OUTPUT = SWEEP_SUMMARY_DIR / "environment_threshold_sensitivity.png"
 
 
-def plot(summary_path: Path, output_path: Path) -> None:
+def plot(summary_path: Path) -> None:
     df = pd.read_csv(summary_path)
     fig, axs = plt.subplots(2, 3, figsize=(FULL_WIDTH, 4.6), sharex=True)
     for i, (ax, v) in enumerate(zip(axs.flat, ORDER)):
@@ -43,17 +43,13 @@ def plot(summary_path: Path, output_path: Path) -> None:
         ax.grid(axis="y", alpha=.2)
     fig.tight_layout(h_pad=1.6)
     label_panels(fig, axs.flat, "abcdef")
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(output_path, dpi=1200, bbox_inches="tight")
-    MANUSCRIPT_FIGURES_DIR.mkdir(parents=True, exist_ok=True)
-    fig.savefig(MANUSCRIPT_FIGURES_DIR / "21_environment_threshold_sensitivity.png", dpi=1200, bbox_inches="tight")
+
+    save_figure(fig, 'environment_threshold_sensitivity', dpi=1200, bbox_inches="tight")
     plt.close(fig)
-    print(output_path)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--summary-csv", type=Path, default=DEFAULT_SUMMARY)
-    parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
     args = parser.parse_args()
-    plot(args.summary_csv, args.output)
+    plot(args.summary_csv)

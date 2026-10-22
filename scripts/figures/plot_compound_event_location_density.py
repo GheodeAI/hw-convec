@@ -27,12 +27,8 @@ PROJECT_DIR = Path(__file__).resolve().parents[2]
 if str(PROJECT_DIR) not in sys.path:
     sys.path.insert(0, str(PROJECT_DIR))
 
-from common.paths import (
-    COMPOUND_DATA_DIR,
-    COMPOUND_FIGURES_DIR,
-    COUNTRIES_SHAPEFILE,
-    WETBULB_HEATWAVES_DIR,
-)
+from common.figures import figure_path, save_figure
+from common.paths import DENSITY_DIR, COUNTRIES_SHAPEFILE, WETBULB_HEATWAVES_DIR
 
 
 EVENT_ID_PATTERN = re.compile(r"_lat(?P<lat>-?\d+(?:\.\d+)?)_lon(?P<lon>-?\d+(?:\.\d+)?)_event")
@@ -57,7 +53,6 @@ DIFFERENCE_COLORS = [
     (0.82, "#f6c17c"),
     (1.0, "#d9793d"),
 ]
-from common.config import MANUSCRIPT_FIGURES_DIR
 from common.style import MID_WIDTH, apply_style
 
 apply_style()
@@ -103,12 +98,8 @@ def parse_args() -> argparse.Namespace:
         help="Compound-event source to plot.",
     )
     parser.add_argument(
-        "--figures-dir",
-        default=str(COMPOUND_FIGURES_DIR / "location_density"),
-    )
-    parser.add_argument(
         "--data-dir",
-        default=str(COMPOUND_DATA_DIR / "location_density"),
+        default=str(DENSITY_DIR),
     )
     parser.add_argument(
         "--shapefile",
@@ -488,10 +479,9 @@ def plot_density_maps(
         cb = fig.colorbar(mesh, ax=ax, orientation="horizontal", fraction=0.05, pad=0.04)
         cb.set_label("Events yr$^{-1}$ grid cell$^{-1}$")
 
-    fig.savefig(output_path, dpi=600)
     if len(datasets) == 1 and datasets[0][0] == "EUCLID CG":
-        MANUSCRIPT_FIGURES_DIR.mkdir(parents=True, exist_ok=True)
-        fig.savefig(MANUSCRIPT_FIGURES_DIR / "15_cg_compound_event_location_density.png", dpi=600)
+
+        save_figure(fig, 'cg_compound_event_location_density', directory=output_path.parent, dpi=600)
     plt.close(fig)
 
 
@@ -570,7 +560,7 @@ def plot_trend_maps(
         cb.set_label("events yr$^{-1}$ per grid cell")
 
     fig.suptitle(f"Compound Event Count Spatial Trend (Apr-Sep, {start_year}-{end_year})", fontsize=16)
-    fig.savefig(output_path, dpi=220, facecolor="white")
+    save_figure(fig, 'cg_compound_event_count_spatial_trend', directory=output_path.parent, dpi=220, facecolor="white")
     plt.close(fig)
 
 
@@ -580,9 +570,7 @@ def main() -> None:
     end_year = args.end_year
     n_years = end_year - start_year + 1
     era5_latitudes, era5_longitudes = open_sample_grid(args.method, start_year)
-    figures_dir = Path(args.figures_dir)
     data_dir = Path(args.data_dir)
-    figures_dir.mkdir(parents=True, exist_ok=True)
     data_dir.mkdir(parents=True, exist_ok=True)
     datasets: list[tuple[str, xr.Dataset]] = []
     sources = list(dict.fromkeys(args.sources))
@@ -646,15 +634,11 @@ def main() -> None:
         datasets.append((plot_label, density))
         print(f"Wrote {nc_path}", flush=True)
 
-    source_tag = "_".join(sources)
-    if args.aggregate_euclid_cg_grid and sources == ["euclid_cg"]:
-        source_tag = f"{source_tag}_{aggregate_tag}"
-    figure_path = figures_dir / f"{source_tag}_compound_event_location_density_{args.method}_{start_year}_{end_year}.png"
-    trend_path = figures_dir / f"{source_tag}_compound_event_count_spatial_trend_{args.method}_{start_year}_{end_year}.png"
-    plot_density_maps(datasets, figure_path, args.method, start_year, end_year, shapefile)
-    plot_trend_maps(datasets, trend_path, start_year, end_year, shapefile)
-    print(f"Wrote {figure_path}", flush=True)
-    print(f"Wrote {trend_path}", flush=True)
+    plot_density_maps(datasets, data_dir / figure_path('cg_compound_event_location_density').name,
+                      args.method, start_year, end_year, shapefile)
+    plot_trend_maps(datasets, data_dir / figure_path('cg_compound_event_count_spatial_trend').name,
+                    start_year, end_year, shapefile)
+
 
 
 if __name__ == "__main__":

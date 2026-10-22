@@ -3,10 +3,10 @@
 sample sizes, requested alongside the existing 09/10/11 first-CG figures.
 
 Lifecycle phase uses the same definition already used for figure
-11_confirmed_first_CG_timing.png (plot_confirmed_land.py:timing()):
+confirmed_first_CG_timing.png (plot_confirmed_land.py:timing()):
 phase = lag_hours_from_heatwave_onset / (24 * grid-cell event duration in days),
 computed on the grid-cell "compound" population in
-data/confirmed_compound_timing.parquet (only fully CG-covered, has_lightning
+first_cg/data/confirmed_compound_timing.parquet (only fully CG-covered, has_lightning
 qualifying regional events, per prepare_confirmed_land.py's 'qualified' filter).
 """
 from __future__ import annotations
@@ -14,12 +14,15 @@ import argparse
 from pathlib import Path
 import numpy as np
 import pandas as pd
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from common.first_cg import read_first_cg_values
 
 VARIABLES = ["tcwv", "cape", "cin", "omega700"]
 
 
 def run(out: Path) -> None:
-    timing = pd.read_parquet(out / "data/confirmed_compound_timing.parquet")
+    timing = pd.read_parquet(out / "first_cg/data/confirmed_compound_timing.parquet")
     phase = timing.lag_hours / (24 * timing.duration)
     lag_days = timing.lag_hours / 24
 
@@ -35,7 +38,7 @@ def run(out: Path) -> None:
     thirds = pd.DataFrame({"n": counts, "percentage": counts / len(timing) * 100})
     print(thirds.to_string())
 
-    anchors = pd.read_parquet(out / "data/confirmed_anchors.parquet")
+    anchors = pd.read_parquet(out / "first_cg/data/confirmed_anchors.parquet")
     compound = anchors[anchors.kind == "compound"]
     nonhw = anchors[anchors.kind == "nonhw_onset"]
     print(f"\ncompound composite: {len(compound)} grid-cell CG onsets, "
@@ -43,7 +46,7 @@ def run(out: Path) -> None:
     print(f"non-heatwave composite: {len(nonhw)} independent onsets "
           f"(from {nonhw.cell.nunique()} distinct grid cells)")
 
-    values = pd.read_parquet(out / "data/first_cg_event_values.parquet")
+    values = read_first_cg_values(out, columns=["kind", "id", "cell", "event_id", "relative_hour"] + [f"{v}_climatological_anomaly" for v in VARIABLES])
     lag_rows = []
     for kind in ["compound", "nonhw_onset"]:
         sub = values[values.kind == kind]
@@ -60,8 +63,8 @@ def run(out: Path) -> None:
     print(f"\nDistinct n_effective values per kind (1 = fully consistent across all hours/variables):")
     print(consistent.to_string())
 
-    lag_table.to_csv(out / "tables/first_cg_lifecycle_effective_n.csv", index=False)
-    print(f"\nWrote {out / 'tables/first_cg_lifecycle_effective_n.csv'}")
+    lag_table.to_csv(out / "first_cg/tables/first_cg_lifecycle_effective_n.csv", index=False)
+    print(f"\nWrote {out / 'first_cg/tables/first_cg_lifecycle_effective_n.csv'}")
 
 
 if __name__ == "__main__":

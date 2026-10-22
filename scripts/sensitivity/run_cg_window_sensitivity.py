@@ -23,12 +23,14 @@ import pandas as pd
 from scipy import ndimage, sparse, stats
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from common.layout import sensitivity_dir
+from common.analysis_inputs import input_path
 from common.config import RUN_DIR, YEARS
 from common.environment import ORDER
 from common.matching import COV, match
 from common.stats import bh, fit_difference
 
-OUT = RUN_DIR / 'cg_window_sensitivity'
+OUT = sensitivity_dir(RUN_DIR) / 'cg_window_sensitivity'
 YEAR_DUMMIES = np.arange(2007, 2026)
 
 
@@ -40,10 +42,10 @@ def classify(events: pd.DataFrame) -> pd.DataFrame:
         sub = events[events.year == year]
         if sub.empty:
             continue
-        with np.load(RUN_DIR / f'data/labels_{year}.npz') as d:
+        with np.load(input_path(RUN_DIR, f'labels_{year}.npz')) as d:
             lab, offset = d['labels'], int(d['offset'])
         nx = lab.shape[2]
-        hour = sparse.load_npz(RUN_DIR / f'data/cg_hourly_era5_{year}.npz').tocsc()
+        hour = sparse.load_npz(input_path(RUN_DIR, f'cg_hourly_era5_{year}.npz')).tocsc()
         objects = ndimage.find_objects(lab)
         for event_id in sub.index:
             label = event_id - offset
@@ -89,9 +91,9 @@ def contrast(e: pd.DataFrame, env: pd.DataFrame, scale: np.ndarray, label: str):
 
 def main() -> None:
     OUT.mkdir(exist_ok=True)
-    events = pd.read_csv(RUN_DIR / 'area_year_diagnostics_v1/events_with_peak_daily_land_area.csv')
+    events = pd.read_csv(RUN_DIR / 'matching/diagnostics/tables/events_with_peak_daily_land_area.csv')
     events = events[events.start_month.between(4, 9) & (events.cg_coverage_fraction == 1)].set_index('event_id')
-    env = pd.read_csv(RUN_DIR / 'tables/event_environment_anomaly.csv').set_index('event_id')
+    env = pd.read_csv(RUN_DIR / 'environment/tables/event_environment_anomaly.csv').set_index('event_id')
     assert np.isfinite(env.loc[events.index, ORDER]).all().all()
 
     cls = classify(events)
@@ -117,7 +119,7 @@ def main() -> None:
         print(f"\n{label}: {counts['compound_available']} compound / {counts['noncompound_available']} "
               f"non-compound, {counts['matched_pairs']} pairs, max |SMD| after {counts['max_abs_smd_after']:.3f}")
 
-    reference = pd.read_csv(RUN_DIR / 'area_match_pair_year_FE_v1/environment_pair_year_FE.csv').set_index('variable').loc[ORDER]
+    reference = pd.read_csv(RUN_DIR / 'matching/final/tables/environment_pair_year_FE.csv').set_index('variable').loc[ORDER]
     main = results[0].set_index('variable')
     assert np.allclose(main[['difference', 'cluster_se', 'p_bh']], reference[['difference', 'cluster_se', 'p_bh']],
                        rtol=1e-8, atol=1e-12), 'main Fig 7 results not reproduced'

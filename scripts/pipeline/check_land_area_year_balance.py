@@ -4,25 +4,27 @@ No rematching and no changes to the source event catalogue or match pairs.
 """
 import argparse
 import json
+import sys
 from pathlib import Path
 import numpy as np
 import pandas as pd
 from scipy import ndimage
-import matplotlib
-matplotlib.use('Agg')
-import matplotlib.pyplot as plt
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from common.analysis_inputs import input_path
 
 
 def run(source,output):
     output.mkdir(parents=True,exist_ok=False)
-    events=pd.read_csv(source/'tables/regional_events.csv')
-    pairs=pd.read_csv(source/'tables/match_pairs.csv')
-    with np.load(source/'data/grids.npz') as grid:
+    (output/'tables').mkdir()
+    events=pd.read_csv(source/'events/regional_events.csv')
+    pairs=pd.read_csv(source/'matching/baseline/match_pairs.csv')
+    with np.load(input_path(source, 'grids.npz')) as grid:
         lat=grid['latitude']; land=grid['era5_land']
     area_by_lat=6371.0**2*np.deg2rad(.25)*(np.sin(np.deg2rad(lat+.125))-np.sin(np.deg2rad(lat-.125)))
     rows=[]
     for year in range(2006,2026):
-        with np.load(source/f'data/labels_{year}.npz') as data:
+        with np.load(input_path(source, f'labels_{year}.npz')) as data:
             labels=data['labels']; offset=int(data['offset']);dates=pd.DatetimeIndex(data['dates'])
             for label,slices in enumerate(ndimage.find_objects(labels),1):
                 t,r,c=np.nonzero(labels[slices]==label)
@@ -38,7 +40,7 @@ def run(source,output):
     full=events.merge(area,on='event_id',validate='one_to_one')
     assert (full.max_daily_land_area_km2>0).all()
     assert (full.max_daily_land_area_km2<=full.area_km2+1e-6).all()
-    full.to_csv(output/'events_with_peak_daily_land_area.csv',index=False)
+    full.to_csv(output/'tables/events_with_peak_daily_land_area.csv',index=False)
     e=full[full.start_month.between(4,9)&(full.cg_coverage_fraction==1)].copy().set_index('event_id')
     comp=e[e.has_lightning]; non=e[~e.has_lightning]
     mc=e.loc[pairs.compound_event_id]; mn=e.loc[pairs.control_event_id]
@@ -52,7 +54,7 @@ def run(source,output):
         for name,group in [('compound_before',comp),('noncompound_before',non),('compound_after',mc),('noncompound_after',mn)]:
             row[name+'_n']=len(group);row[name+'_mean']=group[variable].mean();row[name+'_median']=group[variable].median()
         area_results.append(row)
-    at=pd.DataFrame(area_results);at.to_csv(output/'area_smd.csv',index=False)
+    at=pd.DataFrame(area_results);at.to_csv(output/'tables/area_smd.csv',index=False)
     year_results=[]
     for year in range(2006,2026):
         counts=[int((g.year==year).sum()) for g in [comp,non,mc,mn]]
@@ -65,16 +67,7 @@ def run(source,output):
              baseline_binary_pooled_sd=scale,smd_before=(pc-pn)/scale,smd_after=(ac-an)/scale,
              compound_share_within_year_before=counts[0]/sum(counts[:2]),
              compound_share_within_year_after=counts[2]/sum(counts[2:])))
-    yt=pd.DataFrame(year_results);yt.to_csv(output/'year_indicator_smd.csv',index=False)
-    fig,axs=plt.subplots(2,1,figsize=(12,7.5),sharex=True)
-    for ax,stage,title in zip(axs,['before','after'],['Before matching','After existing matching']):
-        ax.bar(yt.year-.2,yt['compound_proportion_'+stage]*100,width=.38,color='#1665a3',label='compound')
-        ax.bar(yt.year+.2,yt['noncompound_proportion_'+stage]*100,width=.38,color='#ff8512',label='non-compound')
-        ax.set(title=title,ylabel='Events within each group (%)');ax.legend(fontsize=9);ax.grid(axis='y',alpha=.2)
-    for ax in axs:ax.set_ylim(0,max(yt.filter(like='proportion_').max())*115)
-    axs[-1].set_xticks(range(2006,2026));axs[-1].tick_params(axis='x',rotation=45);axs[-1].set_xlabel('Regional heatwave start year')
-    fig.suptitle('Land regional heatwave year balance (CG grid-cell fraction ≥10% defines compound)')
-    fig.tight_layout();fig.savefig(output/'year_proportions_before_after.png',dpi=200);plt.close(fig)
+    yt=pd.DataFrame(year_results);yt.to_csv(output/'tables/year_indicator_smd.csv',index=False)
     result=dict(existing_pairs=len(pairs),compound_before=len(comp),noncompound_before=len(non),
                 log_area_smd_before=float(at.iloc[1].smd_before),log_area_smd_after=float(at.iloc[1].smd_after),
                 max_abs_year_smd_before=float(yt.smd_before.abs().max()),max_abs_year_smd_after=float(yt.smd_after.abs().max()),

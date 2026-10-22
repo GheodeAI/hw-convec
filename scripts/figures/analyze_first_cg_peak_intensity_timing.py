@@ -1,10 +1,5 @@
 #!/usr/bin/env python3
-"""Timing of first CG relative to heatwave MAXIMUM INTENSITY -- the third
-reference point Jurg and Elena asked for, alongside onset and termination
-(already covered by figures/11_confirmed_first_CG_timing.png): "Locating the
-first CG occurrence relative to heatwave onset, maximum intensity and
-termination... may help clarify whether convection develops during the mature
-phase of the heatwave or as the event begins to break down."
+"""Timing of the first CG relative to heatwave onset and maximum intensity.
 
 "The heatwave" here is the regional event, so this is computed at the
 regional-event level only (not per grid cell -- a grid cell's own local
@@ -14,9 +9,6 @@ For every qualifying regional event, finds the day of peak wet-bulb excess
 and reports the lag from that day to the event's first CG: negative = CG
 occurs before the event reaches its most intense day (still intensifying),
 positive = after the peak (declining, "breaking down").
-
-Does not touch the existing onset/termination figure or its data; writes a
-new, separate one alongside it.
 """
 from __future__ import annotations
 import argparse
@@ -31,6 +23,8 @@ import matplotlib.pyplot as plt
 import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from common.analysis_inputs import input_path
+from common.figures import figure_path, save_figure
 from common.config import YEARS, HW
 from common.style import BLUE, ORANGE, FULL_WIDTH, apply_style
 
@@ -45,7 +39,7 @@ def event_peak_days(out: Path) -> dict[int, tuple[int, int]]:
     event's whole footprint."""
     event_peak: dict[int, tuple[int, int]] = {}
     for year in YEARS:
-        with np.load(out / f"data/labels_{year}.npz") as d:
+        with np.load(input_path(out, f"labels_{year}.npz")) as d:
             labels = d["labels"]
             offset = int(d["offset"])
         with xr.open_dataset(HW / f"wetbulb_heatwave_{year}.nc") as ds:
@@ -76,7 +70,7 @@ def peak_timestamp(year: int, day_index: int) -> pd.Timestamp:
 def run(out: Path) -> None:
     event_peak = event_peak_days(out)
 
-    e = pd.read_csv(out / "tables/regional_events.csv", parse_dates=["first_cg_time", "start_time"])
+    e = pd.read_csv(out / "events/regional_events.csv", parse_dates=["first_cg_time", "start_time"])
     e = e[e.has_lightning & (e.cg_coverage_fraction == 1) & e.first_cg_time.dt.month.between(4, 9)].copy()
     e["peak_time"] = [peak_timestamp(*event_peak[eid]) if eid in event_peak else pd.NaT for eid in e.event_id]
     e = e.dropna(subset=["peak_time"]).copy()
@@ -158,17 +152,17 @@ def run(out: Path) -> None:
     ax_top.set_ylabel("N events")
     ax_right.set_xlabel("N events")
 
-    fig.savefig(out / "figures/first_CG_onset_and_peak_intensity_joint.png", dpi=1200, bbox_inches="tight")
+    save_figure(fig, 'first_CG_onset_and_peak_intensity_joint', run_dir=out, dpi=1200, bbox_inches="tight")
     plt.close(fig)
 
-    e.to_csv(out / "tables/confirmed_first_cg_peak_intensity_timing_events.csv", index=False)
-    tab.to_csv(out / "tables/confirmed_first_cg_peak_intensity_timing.csv", index=False)
+    e.to_csv(out / "first_cg/tables/confirmed_first_cg_peak_intensity_timing_events.csv", index=False)
+    tab.to_csv(out / "first_cg/tables/confirmed_first_cg_peak_intensity_timing.csv", index=False)
     print(tab.to_string(index=False), flush=True)
     tied = 100 - later - earlier
     print(f"CG after peak: {later:.1f}%, CG before peak: {earlier:.1f}%, "
           f"exactly at the peak anchor (peak day 12 UTC): {tied:.1f}%", flush=True)
-    print(f"Wrote {out / 'figures/first_CG_onset_and_peak_intensity_joint.png'}")
-    print(f"Wrote {out / 'tables/confirmed_first_cg_peak_intensity_timing.csv'}")
+    print(f"Wrote {figure_path('first_CG_onset_and_peak_intensity_joint', out)}")
+    print(f"Wrote {out / 'first_cg/tables/confirmed_first_cg_peak_intensity_timing.csv'}")
 
 
 if __name__ == "__main__":

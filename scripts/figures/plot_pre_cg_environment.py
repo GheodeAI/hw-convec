@@ -1,13 +1,11 @@
 #!/usr/bin/env python3
-"""Figure 22: matched environmental differences over the whole event versus
-only the period preceding the first CG.
+"""Matched environmental differences over the whole event versus only the
+period preceding the first CG.
 
-One panel per minimum window, because the two windows retain different pairs:
-within a panel the grey diamond and the black circle share the same pairs, so
-the arrow between them isolates the truncation and nothing else. Greyscale
-only -- blue and orange are reserved for compound/non-compound elsewhere in
-the paper -- and a hollow marker means one thing only: the truncated estimate
-is not distinguishable from zero.
+One panel per minimum window (12 h, 24 h), because the two windows retain
+different pairs: within a panel the whole-event square and the pre-CG circle
+share the same pairs, so the connector isolates the truncation. A hollow
+marker means a BH-adjusted p >= 0.05.
 """
 from __future__ import annotations
 import argparse
@@ -19,6 +17,8 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from common.layout import sensitivity_dir
+from common.figures import figure_path, save_figure
 from common.environment import ORDER
 from common.style import MID_WIDTH, apply_style, label_panels
 
@@ -26,15 +26,15 @@ apply_style()
 
 TICKS = [r"$q_{850}$", "TCWV", r"$DPD_{2m}$", r"$qv_{850}$", r"$qu_{850}$", r"$Z_{500}$"]
 CONNECTOR = "#b0b0b0"
-# Whole-event points reuse figure 08's blue, so the same quantity reads as the
-# same colour across the two figures; the pre-CG estimate gets a much darker
-# blue so the two are separable in greyscale print as well.
+# Whole-event points reuse the blue of the main matched-environment figure, so
+# the same quantity reads as the same colour; the pre-CG estimate gets a much
+# darker blue so the two are separable in greyscale print as well.
 WHOLE_BLUE, PRE_CG_BLUE = "#4e79a7", "#0b3d66"
 PANELS = [("whole event, same >=12 h pairs", "pre-CG, >=12 h", "a"),
           ("whole event, same >=24 h pairs", "pre-CG, >=24 h", "b")]
 
 
-def plot(effects_path: Path, output: Path) -> None:
+def plot(effects_path: Path, output: Path, *, run_dir: Path | None = None) -> None:
     df = pd.read_csv(effects_path)
     fig, axs = plt.subplots(2, 1, figsize=(MID_WIDTH, 5.6), sharex=True)
     offset = .16
@@ -74,7 +74,7 @@ def plot(effects_path: Path, output: Path) -> None:
     fig.tight_layout(h_pad=1.6)
     label_panels(fig, axs, "ab", align=True)
     output.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(output, dpi=1200, bbox_inches="tight")
+    save_figure(fig, 'pre_cg_environment', run_dir=run_dir, dpi=1200, bbox_inches="tight")
     plt.close(fig)
     print(output)
 
@@ -83,5 +83,5 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--out", type=Path, required=True)
     args = parser.parse_args()
-    plot(args.out / "pre_cg_environment_v1/pre_cg_environment_effects.csv",
-         args.out / "figures/22_pre_cg_environment.png")
+    plot(sensitivity_dir(args.out) / "pre_cg_environment/pre_cg_environment_effects.csv",
+         figure_path('pre_cg_environment', args.out), run_dir=args.out)

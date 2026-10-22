@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Compare the Stull (2011) and Romps (2026) wet-bulb heatwave definitions at
-the primary 90p+20 threshold (reviewer request: "establish whether
-pressure-related differences affect event classification, particularly over
-elevated regions").
+the primary 90p+20 threshold, to establish whether pressure-related
+differences affect heatwave-day classification, particularly over elevated
+regions.
 
 Reads the existing Stull-based heatwave_day masks
 (processed/wetbulb/heatwaves/90p20) and the Romps-based ones built with
@@ -39,22 +39,24 @@ def panel_letter(ax, c):
 
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO))
-from common.config import MANUSCRIPT_FIGURES_DIR, RUN_DIR, SENSITIVITY_DIR
-from common.style import BLUE, FULL_WIDTH, apply_style, label_panels
+from common.analysis_inputs import input_path
+from common.figures import save_figure
+from common.config import RUN_DIR, WETBULB_COMPARISON_DIR
+from common.style import FULL_WIDTH, apply_style, label_panels
 
 apply_style()
 
 DEFAULT_STULL_DIR = REPO / "processed/wetbulb/heatwaves/90p20"
 DEFAULT_ROMPS_DIR = REPO / "processed/wetbulb/heatwaves/90p20_romps"
 DEFAULT_ERA5_DIR = REPO / "data/Era5"
-DEFAULT_OUTPUT_DIR = SENSITIVITY_DIR / "wetbulb_method_comparison"
+DEFAULT_OUTPUT_DIR = WETBULB_COMPARISON_DIR
 COUNTRIES_SHAPEFILE = REPO / "data/shapefiles/ne_10m_admin_0_countries/ne_10m_admin_0_countries.shp"
-DEFAULT_LAND_MASK_SOURCE = RUN_DIR / "data/grids.npz"
+DEFAULT_LAND_MASK_SOURCE = input_path(RUN_DIR, "grids.npz")
 YEARS = range(2006, 2026)
 WARM_SEASON = list(range(4, 10))
 SEASON_TAG = "4-9"
 GRAVITY = 9.80665
-# Study region per Summary all.md Section 2: 36N-72N, 10W-33E. The ERA5
+# Study region: 36N-72N, 10W-33E. The ERA5
 # download domain is wider (out to 66.5E), so this comparison must be
 # restricted to the actual study region, not the full download extent.
 STUDY_LON = (-10, 33)
@@ -267,9 +269,8 @@ def plot(output_dir: Path, latitude: np.ndarray, longitude: np.ndarray,
     right.grid(axis="y", alpha=.2)
     fig.tight_layout(w_pad=3)
     label_panels(fig, [left, right], "ab")
-    fig.savefig(output_dir / "disagreement_vs_elevation.png", dpi=600, bbox_inches="tight")
-    MANUSCRIPT_FIGURES_DIR.mkdir(parents=True, exist_ok=True)
-    fig.savefig(MANUSCRIPT_FIGURES_DIR / "20_disagreement_vs_elevation.png", dpi=600, bbox_inches="tight")
+
+    save_figure(fig, 'disagreement_vs_elevation', directory=output_dir, dpi=600, bbox_inches="tight")
     plt.close(fig)
 
 
